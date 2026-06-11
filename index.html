@@ -1,0 +1,2787 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Xinyu (Eylon) Liu — LifeMap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F4ECDA;
+    --bg-2: #EDE2C8;
+    --paper: #FBF5E6;
+    --ink: #1A1916;
+    --ink-2: #3A3630;
+    --muted: #8A8270;
+    --rule: #D4C9B0;
+
+    /* Block palette — used as section backgrounds */
+    --c-cream:     #FBF5E6;
+    --c-butter:    #F4D58D;
+    --c-sage:      #B7C6A8;
+    --c-sky:       #BED3E0;
+    --c-rose:      #E8B7A8;
+    --c-terra:     #D97757;
+    --c-ink:       #1A1916;
+    --c-cocoa:     #6B4A2B;
+    --c-mint:      #C7DCC9;
+    --c-pink:      #F2C9CC;
+    --c-lemon:     #F0E68C;
+
+    --accent: var(--c-terra);
+    --accent-soft: oklch(0.92 0.04 35);
+    --serif: "Instrument Serif", "Noto Serif SC", Georgia, serif;
+    --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  /* paper grain */
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background-image: radial-gradient(rgba(0,0,0,0.025) 1px, transparent 1px);
+    background-size: 3px 3px;
+    pointer-events: none;
+    mix-blend-mode: multiply;
+    z-index: 1;
+  }
+  .mono { font-family: var(--mono); font-weight: 400; letter-spacing: 0.02em; }
+  .serif { font-family: var(--serif); font-weight: 400; }
+  .ital { font-style: italic; }
+  a { color: inherit; }
+  ::selection { background: var(--accent); color: var(--paper); }
+
+  /* boot splash — visible instantly, replaced when the app renders */
+  #boot { min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+          justify-content: center; gap: 18px; }
+  #boot .boot-name { font-family: Georgia, serif; font-size: clamp(34px, 5vw, 56px);
+                     letter-spacing: -0.02em; color: var(--ink); }
+  #boot .boot-name em { font-style: italic; color: var(--c-terra); }
+  #boot .boot-sub { font-family: ui-monospace, Menlo, monospace; font-size: 11px;
+                    letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted);
+                    display: inline-flex; align-items: center; gap: 10px; }
+  #boot .boot-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c-terra);
+                    animation: bootPulse 1s ease-in-out infinite; }
+  @keyframes bootPulse { 0%, 100% { opacity: 1; transform: scale(1); }
+                         50% { opacity: 0.35; transform: scale(0.7); } }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root">
+  <div id="boot">
+    <div class="boot-name">Eylon <em>Liu</em></div>
+    <div class="boot-sub"><span class="boot-dot"></span> warming up</div>
+  </div>
+</div>
+<script type="text/babel">
+
+// tweaks-panel.jsx
+// Reusable Tweaks shell + form-control helpers.
+//
+// Owns the host protocol (listens for __activate_edit_mode / __deactivate_edit_mode,
+// posts __edit_mode_available / __edit_mode_set_keys / __edit_mode_dismissed) so
+// individual prototypes don't re-roll it. Ships a consistent set of controls so you
+// don't hand-draw <input type="range">, segmented radios, steppers, etc.
+//
+// Usage (in an HTML file that loads React + Babel):
+//
+//   const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+//     "primaryColor": "#D97757",
+//     "palette": ["#D97757", "#29261b", "#f6f4ef"],
+//     "fontSize": 16,
+//     "density": "regular",
+//     "dark": false
+//   }/*EDITMODE-END*/;
+//
+//   function App() {
+//     const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+//     return (
+//       <div style={{ fontSize: t.fontSize, color: t.primaryColor }}>
+//         Hello
+//         <TweaksPanel>
+//           <TweakSection label="Typography" />
+//           <TweakSlider label="Font size" value={t.fontSize} min={10} max={32} unit="px"
+//                        onChange={(v) => setTweak('fontSize', v)} />
+//           <TweakRadio  label="Density" value={t.density}
+//                        options={['compact', 'regular', 'comfy']}
+//                        onChange={(v) => setTweak('density', v)} />
+//           <TweakSection label="Theme" />
+//           <TweakColor  label="Primary" value={t.primaryColor}
+//                        options={['#D97757', '#2A6FDB', '#1F8A5B', '#7A5AE0']}
+//                        onChange={(v) => setTweak('primaryColor', v)} />
+//           <TweakColor  label="Palette" value={t.palette}
+//                        options={[['#D97757', '#29261b', '#f6f4ef'],
+//                                  ['#475569', '#0f172a', '#f1f5f9']]}
+//                        onChange={(v) => setTweak('palette', v)} />
+//           <TweakToggle label="Dark mode" value={t.dark}
+//                        onChange={(v) => setTweak('dark', v)} />
+//         </TweaksPanel>
+//       </div>
+//     );
+//   }
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
+const __TWEAKS_STYLE = `
+  .twk-panel{position:fixed;right:16px;bottom:16px;z-index:2147483646;width:280px;
+    max-height:calc(100vh - 32px);display:flex;flex-direction:column;
+    transform:scale(var(--dc-inv-zoom,1));transform-origin:bottom right;
+    background:rgba(250,249,247,.78);color:#29261b;
+    -webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);
+    border:.5px solid rgba(255,255,255,.6);border-radius:14px;
+    box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 12px 40px rgba(0,0,0,.18);
+    font:11.5px/1.4 ui-sans-serif,system-ui,-apple-system,sans-serif;overflow:hidden}
+  .twk-hd{display:flex;align-items:center;justify-content:space-between;
+    padding:10px 8px 10px 14px;cursor:move;user-select:none}
+  .twk-hd b{font-size:12px;font-weight:600;letter-spacing:.01em}
+  .twk-x{appearance:none;border:0;background:transparent;color:rgba(41,38,27,.55);
+    width:22px;height:22px;border-radius:6px;cursor:default;font-size:13px;line-height:1}
+  .twk-x:hover{background:rgba(0,0,0,.06);color:#29261b}
+  .twk-body{padding:2px 14px 14px;display:flex;flex-direction:column;gap:10px;
+    overflow-y:auto;overflow-x:hidden;min-height:0;
+    scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.15) transparent}
+  .twk-body::-webkit-scrollbar{width:8px}
+  .twk-body::-webkit-scrollbar-track{background:transparent;margin:2px}
+  .twk-body::-webkit-scrollbar-thumb{background:rgba(0,0,0,.15);border-radius:4px;
+    border:2px solid transparent;background-clip:content-box}
+  .twk-body::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.25);
+    border:2px solid transparent;background-clip:content-box}
+  .twk-row{display:flex;flex-direction:column;gap:5px}
+  .twk-row-h{flex-direction:row;align-items:center;justify-content:space-between;gap:10px}
+  .twk-lbl{display:flex;justify-content:space-between;align-items:baseline;
+    color:rgba(41,38,27,.72)}
+  .twk-lbl>span:first-child{font-weight:500}
+  .twk-val{color:rgba(41,38,27,.5);font-variant-numeric:tabular-nums}
+
+  .twk-sect{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+    color:rgba(41,38,27,.45);padding:10px 0 0}
+  .twk-sect:first-child{padding-top:0}
+
+  .twk-field{appearance:none;box-sizing:border-box;width:100%;min-width:0;height:26px;padding:0 8px;
+    border:.5px solid rgba(0,0,0,.1);border-radius:7px;
+    background:rgba(255,255,255,.6);color:inherit;font:inherit;outline:none}
+  .twk-field:focus{border-color:rgba(0,0,0,.25);background:rgba(255,255,255,.85)}
+  select.twk-field{padding-right:22px;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='rgba(0,0,0,.5)' d='M0 0h10L5 6z'/></svg>");
+    background-repeat:no-repeat;background-position:right 8px center}
+
+  .twk-slider{appearance:none;-webkit-appearance:none;width:100%;height:4px;margin:6px 0;
+    border-radius:999px;background:rgba(0,0,0,.12);outline:none}
+  .twk-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+    width:14px;height:14px;border-radius:50%;background:#fff;
+    border:.5px solid rgba(0,0,0,.12);box-shadow:0 1px 3px rgba(0,0,0,.2);cursor:default}
+  .twk-slider::-moz-range-thumb{width:14px;height:14px;border-radius:50%;
+    background:#fff;border:.5px solid rgba(0,0,0,.12);box-shadow:0 1px 3px rgba(0,0,0,.2);cursor:default}
+
+  .twk-seg{position:relative;display:flex;padding:2px;border-radius:8px;
+    background:rgba(0,0,0,.06);user-select:none}
+  .twk-seg-thumb{position:absolute;top:2px;bottom:2px;border-radius:6px;
+    background:rgba(255,255,255,.9);box-shadow:0 1px 2px rgba(0,0,0,.12);
+    transition:left .15s cubic-bezier(.3,.7,.4,1),width .15s}
+  .twk-seg.dragging .twk-seg-thumb{transition:none}
+  .twk-seg button{appearance:none;position:relative;z-index:1;flex:1;border:0;
+    background:transparent;color:inherit;font:inherit;font-weight:500;min-height:22px;
+    border-radius:6px;cursor:default;padding:4px 6px;line-height:1.2;
+    overflow-wrap:anywhere}
+
+  .twk-toggle{position:relative;width:32px;height:18px;border:0;border-radius:999px;
+    background:rgba(0,0,0,.15);transition:background .15s;cursor:default;padding:0}
+  .twk-toggle[data-on="1"]{background:#34c759}
+  .twk-toggle i{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;
+    background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+  .twk-toggle[data-on="1"] i{transform:translateX(14px)}
+
+  .twk-num{display:flex;align-items:center;box-sizing:border-box;min-width:0;height:26px;padding:0 0 0 8px;
+    border:.5px solid rgba(0,0,0,.1);border-radius:7px;background:rgba(255,255,255,.6)}
+  .twk-num-lbl{font-weight:500;color:rgba(41,38,27,.6);cursor:ew-resize;
+    user-select:none;padding-right:8px}
+  .twk-num input{flex:1;min-width:0;height:100%;border:0;background:transparent;
+    font:inherit;font-variant-numeric:tabular-nums;text-align:right;padding:0 8px 0 0;
+    outline:none;color:inherit;-moz-appearance:textfield}
+  .twk-num input::-webkit-inner-spin-button,.twk-num input::-webkit-outer-spin-button{
+    -webkit-appearance:none;margin:0}
+  .twk-num-unit{padding-right:8px;color:rgba(41,38,27,.45)}
+
+  .twk-btn{appearance:none;height:26px;padding:0 12px;border:0;border-radius:7px;
+    background:rgba(0,0,0,.78);color:#fff;font:inherit;font-weight:500;cursor:default}
+  .twk-btn:hover{background:rgba(0,0,0,.88)}
+  .twk-btn.secondary{background:rgba(0,0,0,.06);color:inherit}
+  .twk-btn.secondary:hover{background:rgba(0,0,0,.1)}
+
+  .twk-swatch{appearance:none;-webkit-appearance:none;width:56px;height:22px;
+    border:.5px solid rgba(0,0,0,.1);border-radius:6px;padding:0;cursor:default;
+    background:transparent;flex-shrink:0}
+  .twk-swatch::-webkit-color-swatch-wrapper{padding:0}
+  .twk-swatch::-webkit-color-swatch{border:0;border-radius:5.5px}
+  .twk-swatch::-moz-color-swatch{border:0;border-radius:5.5px}
+
+  .twk-chips{display:flex;gap:6px}
+  .twk-chip{position:relative;appearance:none;flex:1;min-width:0;height:46px;
+    padding:0;border:0;border-radius:6px;overflow:hidden;cursor:default;
+    box-shadow:0 0 0 .5px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.06);
+    transition:transform .12s cubic-bezier(.3,.7,.4,1),box-shadow .12s}
+  .twk-chip:hover{transform:translateY(-1px);
+    box-shadow:0 0 0 .5px rgba(0,0,0,.18),0 4px 10px rgba(0,0,0,.12)}
+  .twk-chip[data-on="1"]{box-shadow:0 0 0 1.5px rgba(0,0,0,.85),
+    0 2px 6px rgba(0,0,0,.15)}
+  .twk-chip>span{position:absolute;top:0;bottom:0;right:0;width:34%;
+    display:flex;flex-direction:column;box-shadow:-1px 0 0 rgba(0,0,0,.1)}
+  .twk-chip>span>i{flex:1;box-shadow:0 -1px 0 rgba(0,0,0,.1)}
+  .twk-chip>span>i:first-child{box-shadow:none}
+  .twk-chip svg{position:absolute;top:6px;left:6px;width:13px;height:13px;
+    filter:drop-shadow(0 1px 1px rgba(0,0,0,.3))}
+`;
+
+// ── useTweaks ───────────────────────────────────────────────────────────────
+// Single source of truth for tweak values. setTweak persists via the host
+// (__edit_mode_set_keys → host rewrites the EDITMODE block on disk).
+function useTweaks(defaults) {
+  const [values, setValues] = React.useState(defaults);
+  // Accepts either setTweak('key', value) or setTweak({ key: value, ... }) so a
+  // useState-style call doesn't write a "[object Object]" key into the persisted
+  // JSON block.
+  const setTweak = React.useCallback((keyOrEdits, val) => {
+    const edits = typeof keyOrEdits === 'object' && keyOrEdits !== null
+      ? keyOrEdits : { [keyOrEdits]: val };
+    setValues((prev) => ({ ...prev, ...edits }));
+    window.parent.postMessage({ type: '__edit_mode_set_keys', edits }, '*');
+    // Same-window signal so in-page listeners (deck-stage rail thumbnails)
+    // can react — the parent message only reaches the host, not peers.
+    window.dispatchEvent(new CustomEvent('tweakchange', { detail: edits }));
+  }, []);
+  return [values, setTweak];
+}
+
+// ── TweaksPanel ─────────────────────────────────────────────────────────────
+// Floating shell. Registers the protocol listener BEFORE announcing
+// availability — if the announce ran first, the host's activate could land
+// before our handler exists and the toolbar toggle would silently no-op.
+// The close button posts __edit_mode_dismissed so the host's toolbar toggle
+// flips off in lockstep; the host echoes __deactivate_edit_mode back which
+// is what actually hides the panel.
+function TweaksPanel({ title = 'Tweaks', noDeckControls = false, children }) {
+  const [open, setOpen] = React.useState(false);
+  const dragRef = React.useRef(null);
+  // Auto-inject a rail toggle when a <deck-stage> is on the page. The
+  // toggle drives the deck's per-viewer _railVisible via window message;
+  // state is mirrored from the same localStorage key the deck reads so
+  // the control reflects reality across reloads. The mechanism is the
+  // message — authors who want custom placement can post it directly
+  // and pass noDeckControls to suppress this one.
+  const hasDeckStage = React.useMemo(
+    () => typeof document !== 'undefined' && !!document.querySelector('deck-stage'),
+    [],
+  );
+  // deck-stage enables its rail in connectedCallback, but this panel can
+  // mount before that element has upgraded. The initial read catches the
+  // common case; the listener covers mounting first. (Older deck-stage.js
+  // copies still wait for the host's __omelette_rail_enabled postMessage —
+  // same listener handles those.)
+  const [railEnabled, setRailEnabled] = React.useState(
+    () => hasDeckStage && !!document.querySelector('deck-stage')?._railEnabled,
+  );
+  React.useEffect(() => {
+    if (!hasDeckStage || railEnabled) return undefined;
+    const onMsg = (e) => {
+      if (e.data && e.data.type === '__omelette_rail_enabled') setRailEnabled(true);
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [hasDeckStage, railEnabled]);
+  const [railVisible, setRailVisible] = React.useState(() => {
+    try { return localStorage.getItem('deck-stage.railVisible') !== '0'; } catch (e) { return true; }
+  });
+  const toggleRail = (on) => {
+    setRailVisible(on);
+    window.postMessage({ type: '__deck_rail_visible', on }, '*');
+  };
+  const offsetRef = React.useRef({ x: 16, y: 16 });
+  const PAD = 16;
+
+  const clampToViewport = React.useCallback(() => {
+    const panel = dragRef.current;
+    if (!panel) return;
+    const w = panel.offsetWidth, h = panel.offsetHeight;
+    const maxRight = Math.max(PAD, window.innerWidth - w - PAD);
+    const maxBottom = Math.max(PAD, window.innerHeight - h - PAD);
+    offsetRef.current = {
+      x: Math.min(maxRight, Math.max(PAD, offsetRef.current.x)),
+      y: Math.min(maxBottom, Math.max(PAD, offsetRef.current.y)),
+    };
+    panel.style.right = offsetRef.current.x + 'px';
+    panel.style.bottom = offsetRef.current.y + 'px';
+  }, []);
+
+  React.useEffect(() => {
+    if (!open) return;
+    clampToViewport();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', clampToViewport);
+      return () => window.removeEventListener('resize', clampToViewport);
+    }
+    const ro = new ResizeObserver(clampToViewport);
+    ro.observe(document.documentElement);
+    return () => ro.disconnect();
+  }, [open, clampToViewport]);
+
+  React.useEffect(() => {
+    const onMsg = (e) => {
+      const t = e?.data?.type;
+      if (t === '__activate_edit_mode') setOpen(true);
+      else if (t === '__deactivate_edit_mode') setOpen(false);
+    };
+    window.addEventListener('message', onMsg);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
+  const dismiss = () => {
+    setOpen(false);
+    window.parent.postMessage({ type: '__edit_mode_dismissed' }, '*');
+  };
+
+  const onDragStart = (e) => {
+    const panel = dragRef.current;
+    if (!panel) return;
+    const r = panel.getBoundingClientRect();
+    const sx = e.clientX, sy = e.clientY;
+    const startRight = window.innerWidth - r.right;
+    const startBottom = window.innerHeight - r.bottom;
+    const move = (ev) => {
+      offsetRef.current = {
+        x: startRight - (ev.clientX - sx),
+        y: startBottom - (ev.clientY - sy),
+      };
+      clampToViewport();
+    };
+    const up = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+
+  if (!open) return null;
+  return (
+    <>
+      <style>{__TWEAKS_STYLE}</style>
+      <div ref={dragRef} className="twk-panel" data-noncommentable=""
+           style={{ right: offsetRef.current.x, bottom: offsetRef.current.y }}>
+        <div className="twk-hd" onMouseDown={onDragStart}>
+          <b>{title}</b>
+          <button className="twk-x" aria-label="Close tweaks"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={dismiss}>✕</button>
+        </div>
+        <div className="twk-body">
+          {children}
+          {hasDeckStage && railEnabled && !noDeckControls && (
+            <TweakSection label="Deck">
+              <TweakToggle label="Thumbnail rail" value={railVisible} onChange={toggleRail} />
+            </TweakSection>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Layout helpers ──────────────────────────────────────────────────────────
+
+function TweakSection({ label, children }) {
+  return (
+    <>
+      <div className="twk-sect">{label}</div>
+      {children}
+    </>
+  );
+}
+
+function TweakRow({ label, value, children, inline = false }) {
+  return (
+    <div className={inline ? 'twk-row twk-row-h' : 'twk-row'}>
+      <div className="twk-lbl">
+        <span>{label}</span>
+        {value != null && <span className="twk-val">{value}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// ── Controls ────────────────────────────────────────────────────────────────
+
+function TweakSlider({ label, value, min = 0, max = 100, step = 1, unit = '', onChange }) {
+  return (
+    <TweakRow label={label} value={`${value}${unit}`}>
+      <input type="range" className="twk-slider" min={min} max={max} step={step}
+             value={value} onChange={(e) => onChange(Number(e.target.value))} />
+    </TweakRow>
+  );
+}
+
+function TweakToggle({ label, value, onChange }) {
+  return (
+    <div className="twk-row twk-row-h">
+      <div className="twk-lbl"><span>{label}</span></div>
+      <button type="button" className="twk-toggle" data-on={value ? '1' : '0'}
+              role="switch" aria-checked={!!value}
+              onClick={() => onChange(!value)}><i /></button>
+    </div>
+  );
+}
+
+function TweakRadio({ label, value, options, onChange }) {
+  const trackRef = React.useRef(null);
+  const [dragging, setDragging] = React.useState(false);
+  // The active value is read by pointer-move handlers attached for the lifetime
+  // of a drag — ref it so a stale closure doesn't fire onChange for every move.
+  const valueRef = React.useRef(value);
+  valueRef.current = value;
+
+  // Segments wrap mid-word once per-segment width runs out. The track is
+  // ~248px (280 panel − 28 body pad − 4 seg pad), each button loses 12px
+  // to its own padding, and 11.5px system-ui averages ~6.3px/char — so 2
+  // options fit ~16 chars each, 3 fit ~10. Past that (or >3 options), fall
+  // back to a dropdown rather than wrap.
+  const labelLen = (o) => String(typeof o === 'object' ? o.label : o).length;
+  const maxLen = options.reduce((m, o) => Math.max(m, labelLen(o)), 0);
+  const fitsAsSegments = maxLen <= ({ 2: 16, 3: 10 }[options.length] ?? 0);
+  if (!fitsAsSegments) {
+    // <select> emits strings — map back to the original option value so the
+    // fallback stays type-preserving (numbers, booleans) like the segment path.
+    const resolve = (s) => {
+      const m = options.find((o) => String(typeof o === 'object' ? o.value : o) === s);
+      return m === undefined ? s : typeof m === 'object' ? m.value : m;
+    };
+    return <TweakSelect label={label} value={value} options={options}
+                        onChange={(s) => onChange(resolve(s))} />;
+  }
+  const opts = options.map((o) => (typeof o === 'object' ? o : { value: o, label: o }));
+  const idx = Math.max(0, opts.findIndex((o) => o.value === value));
+  const n = opts.length;
+
+  const segAt = (clientX) => {
+    const r = trackRef.current.getBoundingClientRect();
+    const inner = r.width - 4;
+    const i = Math.floor(((clientX - r.left - 2) / inner) * n);
+    return opts[Math.max(0, Math.min(n - 1, i))].value;
+  };
+
+  const onPointerDown = (e) => {
+    setDragging(true);
+    const v0 = segAt(e.clientX);
+    if (v0 !== valueRef.current) onChange(v0);
+    const move = (ev) => {
+      if (!trackRef.current) return;
+      const v = segAt(ev.clientX);
+      if (v !== valueRef.current) onChange(v);
+    };
+    const up = () => {
+      setDragging(false);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
+  return (
+    <TweakRow label={label}>
+      <div ref={trackRef} role="radiogroup" onPointerDown={onPointerDown}
+           className={dragging ? 'twk-seg dragging' : 'twk-seg'}>
+        <div className="twk-seg-thumb"
+             style={{ left: `calc(2px + ${idx} * (100% - 4px) / ${n})`,
+                      width: `calc((100% - 4px) / ${n})` }} />
+        {opts.map((o) => (
+          <button key={o.value} type="button" role="radio" aria-checked={o.value === value}>
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </TweakRow>
+  );
+}
+
+function TweakSelect({ label, value, options, onChange }) {
+  return (
+    <TweakRow label={label}>
+      <select className="twk-field" value={value} onChange={(e) => onChange(e.target.value)}>
+        {options.map((o) => {
+          const v = typeof o === 'object' ? o.value : o;
+          const l = typeof o === 'object' ? o.label : o;
+          return <option key={v} value={v}>{l}</option>;
+        })}
+      </select>
+    </TweakRow>
+  );
+}
+
+function TweakText({ label, value, placeholder, onChange }) {
+  return (
+    <TweakRow label={label}>
+      <input className="twk-field" type="text" value={value} placeholder={placeholder}
+             onChange={(e) => onChange(e.target.value)} />
+    </TweakRow>
+  );
+}
+
+function TweakNumber({ label, value, min, max, step = 1, unit = '', onChange }) {
+  const clamp = (n) => {
+    if (min != null && n < min) return min;
+    if (max != null && n > max) return max;
+    return n;
+  };
+  const startRef = React.useRef({ x: 0, val: 0 });
+  const onScrubStart = (e) => {
+    e.preventDefault();
+    startRef.current = { x: e.clientX, val: value };
+    const decimals = (String(step).split('.')[1] || '').length;
+    const move = (ev) => {
+      const dx = ev.clientX - startRef.current.x;
+      const raw = startRef.current.val + dx * step;
+      const snapped = Math.round(raw / step) * step;
+      onChange(clamp(Number(snapped.toFixed(decimals))));
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+  return (
+    <div className="twk-num">
+      <span className="twk-num-lbl" onPointerDown={onScrubStart}>{label}</span>
+      <input type="number" value={value} min={min} max={max} step={step}
+             onChange={(e) => onChange(clamp(Number(e.target.value)))} />
+      {unit && <span className="twk-num-unit">{unit}</span>}
+    </div>
+  );
+}
+
+// Relative-luminance contrast pick — checkmarks drawn over a swatch need to
+// read on both #111 and #fafafa without per-option configuration. Hex input
+// only (#rgb / #rrggbb); named or rgb()/hsl() colors fall through to "light".
+function __twkIsLight(hex) {
+  const h = String(hex).replace('#', '');
+  const x = h.length === 3 ? h.replace(/./g, (c) => c + c) : h.padEnd(6, '0');
+  const n = parseInt(x.slice(0, 6), 16);
+  if (Number.isNaN(n)) return true;
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return r * 299 + g * 587 + b * 114 > 148000;
+}
+
+const __TwkCheck = ({ light }) => (
+  <svg viewBox="0 0 14 14" aria-hidden="true">
+    <path d="M3 7.2 5.8 10 11 4.2" fill="none" strokeWidth="2.2"
+          strokeLinecap="round" strokeLinejoin="round"
+          stroke={light ? 'rgba(0,0,0,.78)' : '#fff'} />
+  </svg>
+);
+
+// TweakColor — curated color/palette picker. Each option is either a single
+// hex string or an array of 1-5 hex strings; the card adapts — a lone color
+// renders solid, a palette renders colors[0] as the hero (left ~2/3) with the
+// rest stacked in a sharp column on the right. onChange emits the
+// option in the shape it was passed (string stays string, array stays array).
+// Without options it falls back to the native color input for back-compat.
+function TweakColor({ label, value, options, onChange }) {
+  if (!options || !options.length) {
+    return (
+      <div className="twk-row twk-row-h">
+        <div className="twk-lbl"><span>{label}</span></div>
+        <input type="color" className="twk-swatch" value={value}
+               onChange={(e) => onChange(e.target.value)} />
+      </div>
+    );
+  }
+  // Native <input type=color> emits lowercase hex per the HTML spec, so
+  // compare case-insensitively. String() guards JSON.stringify(undefined),
+  // which returns the primitive undefined (no .toLowerCase).
+  const key = (o) => String(JSON.stringify(o)).toLowerCase();
+  const cur = key(value);
+  return (
+    <TweakRow label={label}>
+      <div className="twk-chips" role="radiogroup">
+        {options.map((o, i) => {
+          const colors = Array.isArray(o) ? o : [o];
+          const [hero, ...rest] = colors;
+          const sup = rest.slice(0, 4);
+          const on = key(o) === cur;
+          return (
+            <button key={i} type="button" className="twk-chip" role="radio"
+                    aria-checked={on} data-on={on ? '1' : '0'}
+                    aria-label={colors.join(', ')} title={colors.join(' · ')}
+                    style={{ background: hero }}
+                    onClick={() => onChange(o)}>
+              {sup.length > 0 && (
+                <span>
+                  {sup.map((c, j) => <i key={j} style={{ background: c }} />)}
+                </span>
+              )}
+              {on && <__TwkCheck light={__twkIsLight(hero)} />}
+            </button>
+          );
+        })}
+      </div>
+    </TweakRow>
+  );
+}
+
+function TweakButton({ label, onClick, secondary = false }) {
+  return (
+    <button type="button" className={secondary ? 'twk-btn secondary' : 'twk-btn'}
+            onClick={onClick}>{label}</button>
+  );
+}
+
+Object.assign(window, {
+  useTweaks, TweaksPanel, TweakSection, TweakRow,
+  TweakSlider, TweakToggle, TweakRadio, TweakSelect,
+  TweakText, TweakNumber, TweakColor, TweakButton,
+});
+
+</script>
+<script type="text/babel">
+/* extras.jsx — the fun layer: cursor doodle, draggable hero stickers,
+   orbiting coffee badge, and a film-strip photo lightbox. */
+
+const { useState, useEffect, useRef } = React;
+
+/* ---------- 1. Cursor doodle: a little ring that chases the pointer ---------- */
+function CursorDoodle() {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (window.matchMedia("(pointer: coarse)").matches) return;
+    const el = ref.current;
+    if (!el) return;
+    let x = -100, y = -100, tx = -100, ty = -100, raf;
+    const move = (e) => {
+      tx = e.clientX; ty = e.clientY;
+      const t = e.target;
+      const hot = !!(t && t.closest &&
+        t.closest("a, button, .tab-btn, .strip-btn, .ph, .proj, .love, .meta-card, .stk"));
+      el.classList.toggle("is-hot", hot);
+    };
+    const loop = () => {
+      x += (tx - x) * 0.2;
+      y += (ty - y) * 0.2;
+      el.style.transform = `translate(${x}px, ${y}px)`;
+      raf = requestAnimationFrame(loop);
+    };
+    window.addEventListener("pointermove", move, { passive: true });
+    raf = requestAnimationFrame(loop);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+  return <div ref={ref} className="cursor-doodle" aria-hidden="true"></div>;
+}
+
+/* ---------- 2. Draggable hero stickers ---------- */
+const STICKER_DEFS = [
+  { id: "pass", cls: "stk-pass", x: 84, y: 64, r: -6,
+    body: <React.Fragment>CAN → BNA → JFK<br />SEAT 04L · ONE WAY</React.Fragment> },
+  { id: "chop", cls: "stk-chop", x: 90, y: 42, r: 9, body: "广" },
+  { id: "film", cls: "stk-film", x: 71, y: 8, r: -4, body: "35MM · K200" },
+];
+
+function Sticker({ def, pos, onMove }) {
+  const ref = useRef(null);
+  function down(e) {
+    e.preventDefault();
+    const parent = ref.current.offsetParent;
+    if (!parent) return;
+    const rect = parent.getBoundingClientRect();
+    const sx = e.clientX, sy = e.clientY, ox = pos.x, oy = pos.y;
+    const move = (ev) => {
+      const nx = ox + (ev.clientX - sx) / rect.width * 100;
+      const ny = oy + (ev.clientY - sy) / rect.height * 100;
+      onMove({ x: Math.max(0, Math.min(94, nx)), y: Math.max(0, Math.min(90, ny)) });
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
+  return (
+    <div ref={ref} className={"stk " + def.cls}
+         style={{ left: pos.x + "%", top: pos.y + "%", "--stk-r": def.r + "deg" }}
+         onPointerDown={down} title="drag me">
+      {def.body}
+    </div>
+  );
+}
+
+function HeroStickers() {
+  const [pos, setPos] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("hero-stickers-v2")) || {}; }
+    catch (e) { return {}; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("hero-stickers-v2", JSON.stringify(pos)); } catch (e) {}
+  }, [pos]);
+  return (
+    <React.Fragment>
+      {STICKER_DEFS.map((d) => (
+        <Sticker key={d.id} def={d}
+                 pos={pos[d.id] || { x: d.x, y: d.y }}
+                 onMove={(p) => setPos((prev) => ({ ...prev, [d.id]: p }))} />
+      ))}
+    </React.Fragment>
+  );
+}
+
+/* ---------- 3. Spinning "open to coffee" badge — links to LinkedIn ---------- */
+function CoffeeBadge() {
+  return (
+    <a className="coffee-badge" aria-label="Open to coffee — connect on LinkedIn"
+       href="https://linkedin.com/in/eylonliu/" target="_blank" rel="noopener noreferrer"
+       title="Connect on LinkedIn →">
+      <svg viewBox="0 0 100 100" className="cb-spin">
+        <defs>
+          <path id="cb-circ" d="M 50,50 m -36,0 a 36,36 0 1,1 72,0 a 36,36 0 1,1 -72,0"></path>
+        </defs>
+        <circle cx="50" cy="50" r="49" fill="var(--c-butter)" stroke="var(--ink)" strokeWidth="1.6"></circle>
+        <circle cx="50" cy="50" r="25" fill="var(--c-cream)" stroke="var(--ink)" strokeWidth="1"></circle>
+        <text fontSize="10" letterSpacing="2.1" fill="var(--ink)" fontFamily="var(--mono)">
+          <textPath href="#cb-circ">OPEN TO COFFEE · OPEN TO CHAT ·</textPath>
+        </text>
+      </svg>
+      <span className="cb-core serif">✦</span>
+    </a>
+  );
+}
+
+/* ---------- 4. Film-strip photo lightbox ---------- */
+function PhotoLightbox({ photos, openIdx, onClose, onNav }) {
+  const p = openIdx != null ? photos[openIdx] : null;
+  const [src, setSrc] = useState(null);
+  const [shutter, setShutter] = useState(false);
+
+  useEffect(() => {
+    if (!p) return;
+    setShutter(true);
+    const t = setTimeout(() => setShutter(false), 320);
+    setSrc(p.img || null);
+    return () => clearTimeout(t);
+  }, [openIdx]);
+
+  useEffect(() => {
+    if (!p) return;
+    const key = (e) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowRight") onNav(1);
+      if (e.key === "ArrowLeft") onNav(-1);
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [openIdx, onClose, onNav]);
+
+  if (!p) return null;
+  return ReactDOM.createPortal(
+    <div className="lb" onClick={onClose}>
+      <div className="lb-frame" onClick={(e) => e.stopPropagation()}>
+        <div className="lb-sprockets"></div>
+        <div className="lb-stage">
+          {src ?
+            <img src={src} alt={p.cap} /> :
+            <div className="lb-empty mono">no photo here yet</div>}
+          {shutter && <div className="lb-shutter"></div>}
+        </div>
+        <div className="lb-sprockets"></div>
+        <div className="lb-bar mono">
+          <span>{p.cap}</span>
+          <span className="lb-roll">FRAME {p.roll} / {String(photos.length).padStart(2, "0")}</span>
+        </div>
+      </div>
+      <button className="lb-x mono" onClick={onClose} aria-label="Close">✕</button>
+      <button className="lb-nav lb-prev mono" aria-label="Previous"
+              onClick={(e) => { e.stopPropagation(); onNav(-1); }}>←</button>
+      <button className="lb-nav lb-next mono" aria-label="Next"
+              onClick={(e) => { e.stopPropagation(); onNav(1); }}>→</button>
+    </div>,
+    document.body
+  );
+}
+
+/* ---------- 5. Confetti burst ---------- */
+function confettiBurst(x, y) {
+  if (document.body.classList.contains("no-motion")) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const css = getComputedStyle(document.documentElement);
+  const colors = ["--c-terra", "--c-butter", "--c-sage", "--c-sky", "--c-rose", "--ink"]
+    .map((v) => css.getPropertyValue(v).trim())
+    .filter(Boolean);
+  if (!colors.length) colors.push("#C96342", "#E8C766", "#1B1A17");
+  const host = document.createElement("div");
+  host.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:10000;overflow:hidden;";
+  document.body.appendChild(host);
+  const N = 44;
+  for (let i = 0; i < N; i++) {
+    const p = document.createElement("i");
+    const sz = 5 + Math.random() * 7;
+    const flat = Math.random() < 0.55;
+    p.style.cssText = `position:absolute;left:0;top:0;width:${sz}px;height:${flat ? sz * 0.45 : sz}px;` +
+      `background:${colors[i % colors.length]};border-radius:${flat ? "1px" : "50%"};`;
+    host.appendChild(p);
+    const ang = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 1.7;
+    const v = 90 + Math.random() * 200;
+    const dx = Math.cos(ang) * v;
+    const dy = Math.sin(ang) * v;
+    const rot = (Math.random() - 0.5) * 900;
+    const dur = 950 + Math.random() * 750;
+    p.animate(
+      [
+        { transform: `translate(${x}px, ${y}px) rotate(0deg)`, opacity: 1 },
+        { transform: `translate(${x + dx}px, ${y + dy}px) rotate(${rot * 0.4}deg)`, opacity: 1, offset: 0.35 },
+        { transform: `translate(${x + dx * 1.3}px, ${y + dy + 340}px) rotate(${rot}deg)`, opacity: 0 },
+      ],
+      { duration: dur, easing: "cubic-bezier(.18,.6,.32,1)", fill: "forwards" }
+    );
+  }
+  setTimeout(() => host.remove(), 1900);
+}
+
+/* ---------- 6. Secret keystroke ---------- */
+function useSecretCode(code, cb) {
+  useEffect(() => {
+    let buf = "";
+    const h = (e) => {
+      const t = e.target;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (!e.key || e.key.length !== 1) return;
+      buf = (buf + e.key.toLowerCase()).slice(-code.length);
+      if (buf === code) { buf = ""; cb(); }
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [code, cb]);
+}
+
+Object.assign(window, { CursorDoodle, HeroStickers, CoffeeBadge, PhotoLightbox,
+                        confettiBurst, useSecretCode });
+
+</script>
+<script type="text/babel">
+/* Interactive LifeMap — equirectangular world with dot-pattern land
+   and an ANIMATED journey that draws when you pick a city. */
+
+const { useState, useMemo, useRef, useEffect } = React;
+
+// 36 rows × 72 cols → 5° per cell, lat 90 (top) to -90 (bottom), lon -180 to 180.
+const LAND_ROWS = [
+  "........................................................................",
+  "........................................................................",
+  ".....######.....######################################.......######....",
+  "..########.....##############################################.########.",
+  ".###############################################################.######",
+  "##############################################################...######",
+  "#######...########################################################.####",
+  "#######.....####################################################...####",
+  "#####........##################################################........",
+  "....##........###############################################..........",
+  "....##.........############################################............",
+  ".....##.........######...####.###############..####################....",
+  ".....###.........###......###..############......###################...",
+  "......##..........##........#..############.......##################...",
+  ".......#..........##............##########..........################...",
+  "........###........#............##########...........##############....",
+  ".........###.......#.............#########............############.....",
+  "..........###......##.............########..............#########......",
+  "...........####....###............#######................#######.......",
+  "............###....###.............######.................#####........",
+  ".............##....###.............######.................####.........",
+  "..............#....###..............#####..................###.........",
+  "...................##...............####.....................#........",
+  "...................##.................##...............................",
+  "....................#..................##..............................",
+  "....................#..................##............#.................",
+  "........................................##..........###................",
+  "...........................................##......##.................",
+  "..............................................##.######...............",
+  ".................................................######...............",
+  "...................................................####...............",
+  "........................................................................",
+  "........................................................................",
+  ".......######.........#####.........######........######...............",
+  ".......######.........#####.........######........######...............",
+  "......#######........######........#######.......#######...............",
+];
+
+function project(lon, lat) {
+  return { x: (lon + 180) / 360, y: (90 - lat) / 180 };
+}
+
+const PLACES = [
+  { id: "guangzhou", name: "Guangzhou",   label: "home",  country: "China",                  lat: 23.13, lon: 113.26, era: "Chapter 01 · home",  order: 0, kind: "home",
+    note: "Where it begins. Cantonese household, jasmine tea, dim sum on Sunday. Childhood on the Pearl River.",
+    moment: "first language: 粤语" },
+  { id: "nashville", name: "Nashville",   label: "Vandy", country: "Tennessee, USA",         lat: 36.16, lon: -86.78, era: "Chapter 02 · undergrad", order: 1, kind: "lived",
+    note: "Vanderbilt. Math + Child Development. Researching how 24-month-olds understand pictures.",
+    moment: "thesis: highest honors" },
+  { id: "vienna",    name: "Vienna",      label: "Wien",  country: "Austria",                lat: 48.21, lon: 16.37,  era: "Chapter 03 · semester abroad", order: 2, kind: "lived",
+    note: "A semester in Deutsch. Project assistant at SOS Children's Villages. Coffee houses and tram lines.",
+    moment: "lived in 4th language" },
+  { id: "nashvilleB",name: "Nashville",   label: "back",  country: "Tennessee, USA",         lat: 36.16, lon: -86.78, era: "senior spring",      order: 3, kind: "lived",
+    note: "Senior spring. Wrote the thesis, ran the lab, walked the bridges across the Cumberland.",
+    moment: "Top 20 Outstanding Senior", hidden: true },
+  { id: "brooklyn",  name: "Brooklyn",    label: "NYU",   country: "New York, USA",          lat: 40.69, lon: -73.99, era: "Chapter 04 · grad school", order: 4, kind: "lived",
+    dX: 11, dY: 10, ldx: 12, ldy: 24,
+    note: "Three years in downtown Brooklyn. MS Financial Engineering at NYU Tandon — genetic algorithms in C++, LSTMs, and a pandemic out the window.",
+    moment: "MS FinEng · NYU Tandon" },
+  { id: "jc",        name: "Jersey City", label: "JC",    country: "New Jersey, USA",        lat: 40.72, lon: -74.05, era: "Chapter 05 · now",   order: 5, kind: "home-now",
+    note: "Across the Hudson now — almost five years on Wall St. building quant systems. Manhattan skyline out the window.",
+    moment: "quant strategist" },
+
+  // Travel
+  { id: "hk",        name: "Hong Kong",      country: "China",         lat: 22.32, lon: 114.17,  era: "travel", kind: "travel" },
+  { id: "seattle",   name: "Seattle",        country: "Washington, USA", lat: 47.61, lon: -122.33, era: "travel", kind: "travel" },
+  { id: "tahoe",     name: "Lake Tahoe",     country: "California, USA", lat: 39.09, lon: -120.04, era: "travel", kind: "travel" },
+  { id: "vegas",     name: "Las Vegas",      country: "Nevada, USA",   lat: 36.17, lon: -115.14, era: "travel", kind: "travel" },
+  { id: "niagara",   name: "Niagara Falls",  country: "NY / Ontario",  lat: 43.09, lon: -79.06,  era: "travel", kind: "travel" },
+  { id: "dc",        name: "Washington DC",  country: "USA",           lat: 38.91, lon: -77.04,  era: "travel", kind: "travel" },
+  { id: "miami",     name: "Miami",          country: "Florida, USA",  lat: 25.76, lon: -80.19,  era: "travel", kind: "travel" },
+  { id: "dallas",    name: "Dallas",         country: "Texas, USA",    lat: 32.78, lon: -96.80,  era: "travel", kind: "travel" },
+  { id: "lima",      name: "Lima",           country: "Peru",          lat: -12.05, lon: -77.04, era: "travel", kind: "travel" },
+  { id: "cusco",     name: "Cusco",          country: "Peru",          lat: -13.53, lon: -71.97, era: "travel", kind: "travel" },
+  { id: "lapaz",     name: "La Paz",         country: "Bolivia",       lat: -16.50, lon: -68.15, era: "travel", kind: "travel" },
+  { id: "uyuni",     name: "Uyuni",          country: "Bolivia",       lat: -20.46, lon: -66.83, era: "travel", kind: "travel" },
+  { id: "innsbruck", name: "Innsbruck",      country: "Austria",       lat: 47.27, lon: 11.39,   era: "travel", kind: "travel" },
+  { id: "budapest",  name: "Budapest",       country: "Hungary",       lat: 47.50, lon: 19.04,   era: "travel", kind: "travel" },
+  { id: "monaco",    name: "Monaco",         country: "Côte d'Azur",   lat: 43.74, lon: 7.42,    era: "travel", kind: "travel" },
+];
+
+// Lived journey, in order
+const JOURNEY = ["guangzhou", "nashville", "vienna", "nashville", "brooklyn", "jc"];
+
+// Build a smooth great-circle-ish arc between two points
+function arcPath(x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+  // perpendicular offset for curvature, proportional to distance
+  const dist = Math.hypot(dx, dy);
+  const cx = mx - dy * 0.25;
+  const cy = my + dx * 0.25 - dist * 0.18; // lift the arc up
+  return `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`;
+}
+
+// soft "whoosh" for flight legs (only when the sound tweak is on)
+function flightWhoosh() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    const ctx = flightWhoosh.ctx = flightWhoosh.ctx || new AC();
+    if (ctx.state === "suspended") ctx.resume();
+    const dur = 0.9;
+    const buf = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const filt = ctx.createBiquadFilter();
+    filt.type = "bandpass";
+    filt.Q.value = 1.4;
+    filt.frequency.setValueAtTime(280, ctx.currentTime);
+    filt.frequency.exponentialRampToValueAtTime(1500, ctx.currentTime + dur * 0.55);
+    filt.frequency.exponentialRampToValueAtTime(420, ctx.currentTime + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.1, ctx.currentTime + dur * 0.22);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+    src.connect(filt);
+    filt.connect(g);
+    g.connect(ctx.destination);
+    src.start();
+  } catch (e) {/* audio unavailable */}
+}
+
+function LifeMap({ compact = false, autoplay = false }) {
+  const [hover, setHover] = useState(null);
+  const [active, setActive] = useState("jc");
+  const [animKey, setAnimKey] = useState(0); // bump to retrigger draw
+
+  const W = 1440, H = 720;
+
+  // ---- zoom & pan ----
+  const [zoom, setZoom] = useState(1);
+  const [center, setCenter] = useState({ x: W / 2, y: H / 2 });
+  const [dragging, setDragging] = useState(false);
+  const svgRef = useRef(null);
+  const dragRef = useRef(null);
+  const movedRef = useRef(false);
+  const clampN = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const vw = W / zoom, vh = H / zoom;
+  const vx = clampN(center.x - vw / 2, 0, W - vw);
+  const vy = clampN(center.y - vh / 2, 0, H - vh);
+
+  function zoomTo(nz) {
+    const z = clampN(nz, 1, 6);
+    setZoom(z);
+    if (z === 1) setCenter({ x: W / 2, y: H / 2 });
+  }
+  function onPointerDown(e) {
+    if (zoom <= 1) return;
+    dragRef.current = { px: e.clientX, py: e.clientY, cx: center.x, cy: center.y };
+    movedRef.current = false;
+    setDragging(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+  function onPointerMove(e) {
+    const d = dragRef.current;
+    if (!d || !svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const dx = e.clientX - d.px, dy = e.clientY - d.py;
+    if (Math.abs(dx) + Math.abs(dy) > 5) movedRef.current = true;
+    setCenter({
+      x: clampN(d.cx - dx * (vw / rect.width), vw / 2, W - vw / 2),
+      y: clampN(d.cy - dy * (vh / rect.height), vh / 2, H - vh / 2),
+    });
+  }
+  function onPointerUp() {
+    dragRef.current = null;
+    setDragging(false);
+  }
+
+  const landDots = useMemo(() => {
+    const dots = [];
+    const rows = LAND_ROWS.length, cols = LAND_ROWS[0].length;
+    const cellW = W / cols, cellH = H / rows;
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      if (LAND_ROWS[r][c] === "#") dots.push({
+        cx: c * cellW + cellW / 2,
+        cy: r * cellH + cellH / 2,
+        r: Math.min(cellW, cellH) * 0.32,
+      });
+    }
+    return dots;
+  }, []);
+
+  const pts = useMemo(() =>
+    PLACES.map(p => {
+      const { x, y } = project(p.lon, p.lat);
+      return { ...p, X: x * W + (p.dX || 0), Y: y * H + (p.dY || 0) };
+    }), []);
+
+  // Journey path up to & including active city
+  const journeyByIdx = useMemo(() => {
+    const byId = Object.fromEntries(pts.map(p => [p.id, p]));
+    return JOURNEY.map(id => byId[id]).filter(Boolean);
+  }, [pts]);
+
+  // Index of active in journey (or -1 if not lived)
+  const activeIdx = useMemo(() => {
+    const journeyIds = JOURNEY;
+    for (let i = journeyIds.length - 1; i >= 0; i--) {
+      if (journeyIds[i] === active) return i;
+    }
+    return -1;
+  }, [active]);
+
+  // Segments to draw (each arc is its own path so we animate independently)
+  const segments = useMemo(() => {
+    const segs = [];
+    for (let i = 1; i < journeyByIdx.length; i++) {
+      const a = journeyByIdx[i-1], b = journeyByIdx[i];
+      segs.push({
+        d: arcPath(a.X, a.Y, b.X, b.Y),
+        from: a, to: b, idx: i,
+      });
+    }
+    return segs;
+  }, [journeyByIdx]);
+
+  // ---- sequential journey animation ----
+  // Draw legs one at a time, plane flying each. Replay resets to Guangzhou and re-flies all.
+  const pathRefs = useRef({});
+  const planeRef = useRef(null);
+  const [plane, setPlane] = useState({ x: 0, y: 0, on: false });
+  const drawnRef = useRef(0);          // how many segments currently drawn
+  const seqRef = useRef(0);            // cancellation token
+  const lastKeyRef = useRef(0);        // last animKey we handled
+  const initedRef = useRef(false);
+  const [inited, setInited] = useState(false);
+  const [landedSegs, setLandedSegs] = useState(0); // legs the plane has finished
+
+  // secret flyover: replay the whole journey to the end
+  useEffect(() => {
+    if (compact) return;
+    const go = () => { setActive("jc"); setAnimKey((k) => k + 1); };
+    window.addEventListener("lifemap-flyover", go);
+    return () => window.removeEventListener("lifemap-flyover", go);
+  }, [compact]);
+
+  useEffect(() => {
+    const token = ++seqRef.current;
+    const getEl = (i) => pathRefs.current[i];
+    const setSeg = (i, drawn, animate) => {
+      const el = getEl(i);
+      if (!el) return;
+      const len = el.getTotalLength();
+      el.style.strokeDasharray = len;
+      if (animate) {
+        void el.getBoundingClientRect(); // commit start value so transition fires
+        el.style.transition = "stroke-dashoffset 1000ms cubic-bezier(.22,1,.36,1)";
+      } else {
+        el.style.transition = "none";
+      }
+      el.style.strokeDashoffset = drawn ? 0 : len;
+    };
+    const flyPlane = (i) => new Promise((res) => {
+      const el = getEl(i);
+      if (!el) return res();
+      const len = el.getTotalLength();
+      let start;
+      const dur = Math.max(350, Math.min(1000, len * 3)); // short hops fly faster
+      const step = (ts) => {
+        if (seqRef.current !== token) { setPlane((p) => ({ ...p, on: false })); return res(); }
+        if (!start) start = ts;
+        const k = Math.min(1, (ts - start) / dur);
+        const e = 1 - Math.pow(1 - k, 3);
+        const pt = el.getPointAtLength(e * len);
+        const ahead = el.getPointAtLength(Math.min(len, e * len + 3));
+        const a = Math.atan2(ahead.y - pt.y, ahead.x - pt.x) * 180 / Math.PI;
+        setPlane({ x: pt.x, y: pt.y, a, on: k < 1 });
+        if (k < 1) requestAnimationFrame(step);else res();
+      };
+      requestAnimationFrame(step);
+    });
+
+    (async () => {
+      const target = Math.max(0, activeIdx);
+      let from = drawnRef.current;
+
+      if (!initedRef.current) {
+        // first paint: start from zero, everything hidden
+        segments.forEach((s) => setSeg(s.idx, false, false));
+        initedRef.current = true;
+        setInited(true);
+        from = 0;
+        setLandedSegs(0);
+      } else if (lastKeyRef.current !== animKey) {
+        // replay: wipe the whole journey and redraw from the start
+        segments.forEach((s) => setSeg(s.idx, false, false));
+        from = 0;
+        setLandedSegs(0);
+      }
+      lastKeyRef.current = animKey;
+
+      if (target < from) {
+        // picked an earlier city: retract later legs
+        for (let i = from; i > target; i--) setSeg(i, false, true);
+        setPlane((p) => ({ ...p, on: false }));
+        drawnRef.current = target;
+        setLandedSegs(target);
+        return;
+      }
+      for (let i = from + 1; i <= target; i++) {
+        if (seqRef.current !== token) return;
+        setSeg(i, true, true);
+        drawnRef.current = i;
+        if (!compact && window.__flightSound) flightWhoosh();
+        await flyPlane(i);
+        if (seqRef.current !== token) return;
+        setLandedSegs(i);
+      }
+    })();
+  }, [segments, activeIdx, animKey]);
+
+  const activePoint = pts.find(p => p.id === (hover || active));
+
+  // autoplay through journey
+  useEffect(() => {
+    if (!autoplay) return;
+    const ids = ["guangzhou","nashville","vienna","brooklyn","jc"];
+    let i = 0;
+    setActive(ids[0]); setAnimKey(k => k+1);
+    const t = setInterval(() => {
+      i = (i + 1) % ids.length;
+      setActive(ids[i]);
+      if (i === 0) setAnimKey(k => k+1);
+    }, 2400);
+    return () => clearInterval(t);
+  }, [autoplay]);
+
+  function pickCity(id) {
+    if (movedRef.current) { movedRef.current = false; return; } // it was a pan, not a click
+    if (id === active) {
+      // replay
+      setAnimKey(k => k + 1);
+    } else {
+      setActive(id);
+    }
+  }
+
+  return (
+    <div className={"lifemap" + (compact ? " is-compact" : "")}>
+      <div className="lifemap-stage">
+      <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" className="lifemap-svg"
+           onPointerDown={onPointerDown} onPointerMove={onPointerMove}
+           onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
+           style={{ cursor: zoom > 1 ? (dragging ? "grabbing" : "grab") : "default", touchAction: "none" }}>
+        <defs>
+          <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="6" />
+          </filter>
+          <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+            <path d="M 60 0 L 0 0 0 60" fill="none" stroke="rgba(27,26,23,0.05)" strokeWidth="1" />
+          </pattern>
+        </defs>
+
+        <rect x="0" y="0" width={W} height={H} fill="url(#grid)" />
+
+        <g className="map-pan"
+           transform={`scale(${zoom}) translate(${-vx} ${-vy})`}
+           style={{ transition: dragging ? "none" : "transform 0.5s cubic-bezier(.22,1,.36,1)" }}>
+
+        {/* equator + prime meridian */}
+        <line x1="0" y1={H/2} x2={W} y2={H/2} stroke="rgba(27,26,23,0.12)" strokeDasharray="2 6" />
+        <line x1={W/2} y1="0" x2={W/2} y2={H} stroke="rgba(27,26,23,0.12)" strokeDasharray="2 6" />
+        <line x1="0" y1={H * (90-23.5)/180} x2={W} y2={H * (90-23.5)/180} stroke="rgba(27,26,23,0.06)" strokeDasharray="1 5" />
+        <line x1="0" y1={H * (90+23.5)/180} x2={W} y2={H * (90+23.5)/180} stroke="rgba(27,26,23,0.06)" strokeDasharray="1 5" />
+
+        {/* land dots */}
+        <g>
+          {landDots.map((d, i) => (
+            <circle key={i} cx={d.cx} cy={d.cy} r={d.r} fill="rgba(27,26,23,0.32)" />
+          ))}
+        </g>
+
+        {/* animated journey segments */}
+        <g style={{ opacity: inited ? 1 : 0 }}>
+          {segments.map(s => (
+            <path
+              key={s.idx}
+              ref={el => (pathRefs.current[s.idx] = el)}
+              d={s.d}
+              fill="none"
+              stroke="var(--c-terra)"
+              strokeWidth={2.2 / Math.sqrt(zoom)}
+              strokeLinecap="round"
+            />
+          ))}
+        </g>
+
+        {/* the little plane flying the current leg */}
+        {plane.on && (
+          <g transform={`translate(${plane.x}, ${plane.y}) rotate(${plane.a || 0}) scale(${1 / zoom})`}>
+            <circle r="15" fill="var(--c-terra)" opacity="0.2" filter="url(#softGlow)" />
+            <text textAnchor="middle" dominantBaseline="central" fontSize="24"
+                  fill="var(--c-terra)" stroke="var(--paper)" strokeWidth="0.8"
+                  style={{ pointerEvents: "none" }}>{"\u2708\uFE0E"}</text>
+          </g>
+        )}
+
+        {/* halo on active */}
+        {activePoint && (
+          <circle cx={activePoint.X} cy={activePoint.Y} r={22 / zoom}
+                  fill="var(--c-terra)" opacity="0.18" filter="url(#softGlow)" />
+        )}
+
+        {/* pins */}
+        {pts.filter(p => !p.hidden).map(p => {
+          const isLived = p.kind !== "travel";
+          const isActive = p.id === (hover || active);
+          const iz = 1 / zoom;
+          return (
+            <g key={p.id}
+               onMouseEnter={() => setHover(p.id)}
+               onMouseLeave={() => setHover(null)}
+               onClick={() => pickCity(p.id)}
+               style={{ cursor: "pointer" }}>
+              <circle cx={p.X} cy={p.Y} r={20 * iz} fill="transparent" />
+              {isLived ? (
+                <>
+                  <circle cx={p.X} cy={p.Y} r={(isActive ? 8 : 5.5) * iz} fill="var(--c-terra)"
+                          style={{ transition: "r 0.2s" }} />
+                  <circle cx={p.X} cy={p.Y} r={(isActive ? 16 : 12) * iz} fill="none"
+                          stroke="var(--c-terra)" strokeWidth={1.2 * iz} opacity="0.65"
+                          style={{ transition: "r 0.2s" }} />
+                </>
+              ) : (
+                <circle cx={p.X} cy={p.Y} r={(isActive ? 5.5 : 4) * iz}
+                        fill="var(--paper)" stroke="var(--ink)" strokeWidth={1.4 * iz} />
+              )}
+              {(isLived || (!compact && (isActive || zoom >= 2))) && (
+                <text x={p.X + (p.ldx != null ? p.ldx : 12) * iz} y={p.Y + (p.ldy != null ? p.ldy : -10) * iz}
+                      fontFamily="var(--mono)" fontSize={13 * iz}
+                      fill={isActive ? "var(--ink)" : "var(--ink-2)"}
+                      opacity={isActive ? 1 : isLived ? 0.65 : 0.5}
+                      style={{ pointerEvents: "none" }}>
+                  {p.name}
+                </text>
+              )}
+            </g>
+          );
+        })}
+
+        <g fontFamily="var(--mono)" fontSize="10" fill="var(--muted)">
+          <text x="6" y={H/2 - 4}>0°</text>
+          <text x={W/2 + 4} y="14">0°</text>
+        </g>
+        </g>
+      </svg>
+
+      {!compact && (
+        <div className="map-zoom mono">
+          <button onClick={() => zoomTo(zoom * 1.5)} disabled={zoom >= 6}
+                  aria-label="Zoom in" title="Zoom in">+</button>
+          <span className="zoom-lvl">{(Math.round(zoom * 10) / 10).toString().replace(/\.0$/, "")}×</span>
+          <button onClick={() => zoomTo(zoom / 1.5)} disabled={zoom <= 1}
+                  aria-label="Zoom out" title="Zoom out">−</button>
+          {zoom > 1 && (
+            <button className="zoom-reset" onClick={() => zoomTo(1)}
+                    aria-label="Reset zoom" title="Reset">⌖</button>
+          )}
+        </div>
+      )}
+
+      {!compact && (
+        <div className="lifemap-legend mono">
+          <span><span className="lg lg-lived" /> Lived</span>
+          <span><span className="lg lg-trav" /> Traveled</span>
+          <span><span className="lg lg-line" /> Journey</span>
+          <button className="replay-btn mono" onClick={() => setAnimKey(k => k + 1)}>
+            ↻ Replay
+          </button>
+        </div>
+      )}
+      </div>
+
+      {!compact && (
+        <>
+          <div className="lifemap-card">
+            <div className="lifemap-card-kicker mono">
+              <span className="dot" /> {activePoint?.kind === "travel" ? "TRAVELED" : "LIVED"}
+              <span style={{opacity: 0.5}}> · </span>
+              {activePoint?.era}
+            </div>
+            <div className="lifemap-card-title serif">
+              {activePoint?.name}
+              {activePoint?.label && activePoint.label !== activePoint.name && (
+                <span className="ital" style={{opacity: 0.55, marginLeft: 10, fontSize: "0.7em"}}>
+                  {activePoint.label}
+                </span>
+              )}
+            </div>
+            <div className="lifemap-card-sub mono">{activePoint?.country}</div>
+            <div className="lifemap-card-note">{activePoint?.note || "A quick stop. Camera-only."}</div>
+            {activePoint?.moment && (
+              <div className="lifemap-card-moment mono">
+                ★ {activePoint.moment}
+              </div>
+            )}
+            <div className="lifemap-card-coords mono">
+              {activePoint.lat.toFixed(2)}° {activePoint.lat >= 0 ? "N" : "S"}
+              {"   ·   "}
+              {Math.abs(activePoint.lon).toFixed(2)}° {activePoint.lon >= 0 ? "E" : "W"}
+            </div>
+          </div>
+
+          <div className="lifemap-strip">
+            {pts.filter(p => p.kind !== "travel" && !p.hidden).map(p => (
+              <button key={p.id}
+                      className={"strip-btn" + (active === p.id ? " is-active" : "")}
+                      onClick={() => pickCity(p.id)}>
+                <span className="mono strip-era">{p.era}</span>
+                <span className="serif strip-name">{p.name}</span>
+              </button>
+            ))}
+          </div>
+
+          <PassportStamps landedSegs={landedSegs} inited={inited} />
+        </>
+      )}
+    </div>
+  );
+}
+
+window.LifeMap = LifeMap;
+window.PLACES = PLACES;
+
+/* ---------- Passport stamps: one per lived city, thunks in as the plane lands ---------- */
+const STAMP_DEFS = [
+  // seg = journey leg after which this city is "landed" (0 = origin, always stamped)
+  { id: "guangzhou", seg: 0, name: "GUANGZHOU", sub: "CAN · 1997", glyph: "广", shape: "round", inkCls: "si-red",  r: -8 },
+  { id: "nashville", seg: 1, name: "NASHVILLE", sub: "BNA · 2015", glyph: "★", shape: "rect",  inkCls: "si-blue", r: 5 },
+  { id: "vienna",    seg: 2, name: "WIEN",      sub: "VIE · 2017", glyph: "♪", shape: "oval",  inkCls: "si-ink",  r: -4 },
+  { id: "brooklyn",  seg: 4, name: "BROOKLYN",  sub: "NYU · 2018", glyph: "⚒", shape: "round", inkCls: "si-blue", r: 7 },
+  { id: "jc",        seg: 5, name: "JERSEY CITY", sub: "EWR · 2021", glyph: "⌂", shape: "rect", inkCls: "si-red", r: -5 },
+];
+
+function PassportStamps({ landedSegs, inited }) {
+  return (
+    <div className="stamp-row" aria-label="Passport stamps">
+      <span className="stamp-row-label mono">ARRIVALS →</span>
+      {STAMP_DEFS.map((s) => {
+        const landed = inited && landedSegs >= s.seg;
+        return (
+          <div key={s.id}
+               className={"stamp " + s.shape + " " + s.inkCls + (landed ? " is-landed" : "")}
+               style={{ "--stamp-r": s.r + "deg" }}>
+            <span className="stamp-glyph">{s.glyph}</span>
+            <span className="stamp-name">{s.name}</span>
+            <span className="stamp-sub">{s.sub}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+</script>
+<script type="text/babel">
+/* Eylon's personal site — app.jsx
+   Tabbed magazine layout with colored blocks, animation, and personality. */
+
+const { useState, useEffect, useRef } = React;
+const { TweaksPanel, useTweaks, TweakSection, TweakRadio, TweakToggle,
+        CursorDoodle, HeroStickers, CoffeeBadge, PhotoLightbox,
+        confettiBurst, useSecretCode } = window;
+
+// ============================ STYLES ============================
+const css = `
+  /* ============ LAYOUT ============ */
+  .page { position: relative; z-index: 2; max-width: 1320px; margin: 0 auto; padding: 18px 28px 80px; }
+  @media (max-width: 760px) { .page { padding: 12px 12px 60px; } }
+
+  /* ============ TOPBAR ============ */
+  .topbar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+            gap: 24px; padding: 14px 22px; background: var(--c-cream);
+            border-radius: 999px; border: 1px solid var(--ink); position: sticky; top: 18px;
+            z-index: 30; box-shadow: 0 6px 0 -2px var(--ink); }
+  @media (max-width: 880px) {
+    .topbar { grid-template-columns: 1fr auto; padding: 10px 14px; gap: 12px; top: 10px; }
+    .topbar .nav-loc { display: none; }
+  }
+  @media (max-width: 520px) {
+    .topbar { grid-template-columns: 1fr; gap: 8px; padding: 10px 12px; border-radius: 20px; }
+    .topbar .nav-brand { justify-content: center; font-size: 18px; }
+    .topbar .tabs { justify-content: center; overflow-x: auto; max-width: 100%;
+                    scrollbar-width: none; -ms-overflow-style: none; }
+    .topbar .tabs::-webkit-scrollbar { display: none; }
+    .topbar .tab-btn { padding: 7px 11px; font-size: 10px; letter-spacing: 0.1em; }
+  }
+  .nav-brand { font-family: var(--serif); font-size: 22px; letter-spacing: -0.01em;
+               display: inline-flex; align-items: center; gap: 8px; }
+  .nav-brand .dot { width: 10px; height: 10px; border-radius: 50%;
+                    background: var(--c-terra); display: inline-block;
+                    animation: pulse 2.4s ease-in-out infinite; }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.4); opacity: 0.6; }
+  }
+  .tabs { display: flex; gap: 4px; padding: 4px; background: var(--bg-2);
+          border-radius: 999px; }
+  .tab-btn { background: transparent; border: 0; cursor: pointer;
+             padding: 8px 16px; border-radius: 999px;
+             font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em;
+             text-transform: uppercase; color: var(--ink-2);
+             transition: background 0.2s, color 0.2s; white-space: nowrap; }
+  .tab-btn:hover { color: var(--ink); }
+  .tab-btn.is-active { background: var(--ink); color: var(--c-cream); }
+  .nav-loc { font-family: var(--mono); font-size: 11px; opacity: 0.7; letter-spacing: 0.08em;
+             text-align: right; display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+             white-space: nowrap; }
+  .nav-loc .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #2C8A3F;
+                       box-shadow: 0 0 0 0 rgba(44, 138, 63, 0.5);
+                       animation: live 1.6s ease-out infinite; }
+  @keyframes live {
+    0% { box-shadow: 0 0 0 0 rgba(44,138,63,0.6); }
+    100% { box-shadow: 0 0 0 10px rgba(44,138,63,0); }
+  }
+
+  /* ============ TAB CONTENT ============ */
+  .tab-content { margin-top: 22px; opacity: 1; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+  /* ============ SCROLL REVEAL ============ */
+  /* hidden state only applies once JS confirms the observer is live (body.js-reveal) —
+     if anything fails, content simply shows */
+  @media (prefers-reduced-motion: no-preference) {
+    body:not(.no-motion) .tab-content { animation: fadeUp 0.5s cubic-bezier(.22,1,.36,1) both; }
+    body.js-reveal:not(.no-motion) .rv { opacity: 0; transform: translateY(18px); }
+    body.js-reveal:not(.no-motion) .rv.is-in { opacity: 1; transform: none;
+      transition: opacity 0.65s ease, transform 0.65s cubic-bezier(.22,1,.36,1);
+      transition-delay: var(--rv-d, 0ms); }
+  }
+
+  /* ============ BLOCK ============ */
+  .block { border-radius: 24px; padding: 40px; border: 1px solid var(--ink);
+           box-shadow: 0 6px 0 -2px var(--ink); position: relative; overflow: hidden; }
+  .block.ov { overflow: visible; }
+  @media (max-width: 760px) { .block { padding: 24px; border-radius: 18px; } }
+  .block.cream  { background: var(--c-cream); }
+  .block.butter { background: var(--c-butter); }
+  .block.sage   { background: var(--c-sage); }
+  .block.sky    { background: var(--c-sky); }
+  .block.rose   { background: var(--c-rose); }
+  .block.terra  { background: var(--c-terra); color: var(--c-cream); }
+  .block.terra .ink2, .block.terra .muted { color: rgba(251,245,230,0.8); }
+  .block.ink    { background: var(--c-ink); color: var(--c-cream); }
+  .block.ink .ink2, .block.ink .muted { color: rgba(251,245,230,0.7); }
+  .block.mint   { background: var(--c-mint); }
+  .block.pink   { background: var(--c-pink); }
+  .block.lemon  { background: var(--c-lemon); }
+  .block.paper  { background: var(--paper); }
+
+  .block-kicker { font-family: var(--mono); font-size: 12px; letter-spacing: 0.22em;
+                  text-transform: uppercase; opacity: 0.7; }
+  .block-title { font-family: var(--serif); font-size: clamp(40px, 6vw, 80px);
+                 line-height: 1; letter-spacing: -0.02em; margin: 10px 0 0; font-weight: 400; }
+  .block-title .ital { font-style: italic; }
+  .block-lede { font-family: var(--serif); font-size: clamp(18px, 2vw, 24px); line-height: 1.45;
+                color: inherit; opacity: 0.88; margin-top: 16px; max-width: 600px;
+                text-wrap: pretty; }
+  .block-head { display: grid; grid-template-columns: 1.2fr 1fr; align-items: end;
+                gap: 24px 48px; margin-bottom: 36px; }
+  @media (max-width: 760px) { .block-head { grid-template-columns: 1fr; gap: 16px; } }
+
+  /* ============ HERO ============ */
+  .hero { display: grid; grid-template-columns: 1.2fr auto; gap: 32px; align-items: center; }
+  @media (max-width: 760px) { .hero { grid-template-columns: 1fr; } }
+  .hero-greet { display: flex; flex-wrap: wrap; gap: 14px 24px; font-family: var(--serif);
+                font-size: 22px; color: var(--ink-2); margin-bottom: 28px; }
+  .hero-greet span { display: inline-flex; align-items: baseline; gap: 8px; white-space: nowrap; }
+  .hero-greet em { font-style: italic; color: var(--ink); }
+  .hero-greet .tag { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em;
+                     text-transform: uppercase; opacity: 0.55; }
+  .hero-name { font-family: var(--serif); font-size: clamp(58px, 13vw, 200px);
+               line-height: 0.9; letter-spacing: -0.03em; margin: 0; font-weight: 400; }
+  .hero-name .ital { font-style: italic; color: var(--c-terra); }
+  .hero-cn { font-family: "Noto Serif SC", var(--serif); font-size: clamp(30px, 5vw, 80px);
+             line-height: 1; margin-top: 10px; letter-spacing: 0.04em; opacity: 0.92; }
+  .hero-pron { font-family: var(--mono); font-size: 13px; letter-spacing: 0.1em;
+               text-transform: uppercase; opacity: 0.6; margin-top: 18px;
+               display: flex; align-items: center; gap: 10px; }
+  .hero-pron .pron-pill { background: var(--ink); color: var(--c-cream);
+                          padding: 5px 12px; border-radius: 999px; letter-spacing: 0.06em; }
+
+  .avatar-wrap { position: relative; width: 390px; height: 390px;
+                 transform: rotate(-3deg); transition: transform 0.4s; }
+  .avatar-wrap:hover { transform: rotate(3deg) scale(1.04); }
+  .avatar { width: 100%; height: 100%; border-radius: 999px; overflow: hidden;
+            background: var(--c-butter); border: 2px solid var(--ink); position: relative;
+            box-shadow: 0 8px 0 -2px var(--ink); }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 18%; display: block; }
+  .avatar-sticker { position: absolute; top: -10px; right: -10px; z-index: 2;
+                    cursor: pointer; transition: transform 0.18s;
+                    background: var(--c-terra); color: var(--c-cream);
+                    width: 96px; height: 96px; border-radius: 50%;
+                    display: flex; align-items: center; justify-content: center; text-align: center;
+                    font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em;
+                    text-transform: uppercase; line-height: 1.1; border: 2px solid var(--ink);
+                    transform: rotate(12deg); }
+  .avatar-sticker:hover { transform: rotate(4deg) scale(1.12); }
+  .avatar-sticker:active { transform: rotate(4deg) scale(0.92); }
+  @media (max-width: 760px) { .avatar-wrap { width: 240px; height: 240px; } }
+
+  /* ============ CURSOR DOODLE ============ */
+  .cursor-doodle { position: fixed; left: 0; top: 0; width: 18px; height: 18px;
+                   margin: -9px 0 0 -9px; border: 1.6px solid var(--c-terra);
+                   border-radius: 50%; pointer-events: none; z-index: 9999;
+                   transition: width 0.2s, height 0.2s, margin 0.2s, background 0.2s, opacity 0.2s; }
+  .cursor-doodle.is-hot { width: 38px; height: 38px; margin: -19px 0 0 -19px;
+                          background: oklch(0.62 0.12 35 / 0.14); }
+  @media (pointer: coarse) { .cursor-doodle { display: none; } }
+  body.no-motion .cursor-doodle { display: none; }
+
+  /* ============ HERO STICKERS ============ */
+  .stk { position: absolute; z-index: 6; cursor: grab; user-select: none;
+         touch-action: none; transform: rotate(var(--stk-r, 0deg));
+         font-family: var(--mono); border: 1px solid var(--ink);
+         box-shadow: 0 3px 0 -1px var(--ink); transition: box-shadow 0.2s; }
+  .stk:active { cursor: grabbing; box-shadow: 0 6px 0 -1px var(--ink); }
+  .stk-pass { background: var(--c-sky); font-size: 9px; letter-spacing: 0.08em;
+              line-height: 1.6; padding: 8px 12px; border-radius: 8px;
+              border-left: 1px dashed var(--ink); text-transform: uppercase; }
+  .stk-chop { background: var(--c-terra); color: var(--c-cream);
+              font-family: var(--serif); font-size: 30px; width: 52px; height: 52px;
+              display: flex; align-items: center; justify-content: center;
+              border-radius: 10px; }
+  .stk-film { background: var(--c-ink); color: var(--c-cream); font-size: 9px;
+              letter-spacing: 0.14em; padding: 7px 11px; border-radius: 6px; }
+  @media (max-width: 1020px) { .stk { display: none; } }
+
+  /* ============ PEEL CHIPS & GHOST GLYPHS (overlap layer) ============ */
+  .peel { position: absolute; z-index: 5; font-family: var(--mono); font-size: 10px;
+          letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink);
+          padding: 8px 14px; border: 1px solid var(--ink); border-radius: 999px;
+          box-shadow: 0 3px 0 -1px var(--ink); white-space: nowrap;
+          transform: rotate(var(--peel-r, -3deg)); pointer-events: none; }
+  @media (prefers-reduced-motion: no-preference) {
+    body:not(.no-motion) .peel { animation: peelBob 5.5s ease-in-out infinite; }
+  }
+  @keyframes peelBob { 0%, 100% { transform: rotate(var(--peel-r, -3deg)) translateY(0); }
+                       50% { transform: rotate(var(--peel-r, -3deg)) translateY(-6px); } }
+  .peel.p-butter { background: var(--c-butter); }
+  .peel.p-sky    { background: var(--c-sky); }
+  .peel.p-sage   { background: var(--c-sage); }
+  .peel.p-rose   { background: var(--c-rose); }
+  @media (max-width: 760px) { .peel { display: none; } }
+
+  .block-glyph { position: absolute; top: -34px; right: 34px; z-index: 4;
+                 font-family: var(--serif); font-style: italic; font-size: 150px;
+                 line-height: 1; color: var(--ink); opacity: 0.07;
+                 pointer-events: none; user-select: none; }
+  @media (max-width: 760px) { .block-glyph { font-size: 90px; top: -22px; right: 18px; } }
+
+  /* ============ PASSPORT STAMPS ============ */
+  .stamp-row { grid-column: 1 / -1; display: flex; align-items: center; gap: 18px;
+               flex-wrap: wrap; margin-top: 6px; padding: 16px 18px;
+               border: 1px dashed var(--ink); border-radius: 16px; opacity: 0.96; }
+  .stamp-row-label { font-size: 10px; letter-spacing: 0.22em; color: var(--muted); }
+  .stamp { display: flex; flex-direction: column; align-items: center; gap: 1px;
+           padding: 10px 16px; border: 2.2px double currentColor;
+           transform: rotate(var(--stamp-r, 0deg)) scale(2.4);
+           opacity: 0; visibility: hidden; }
+  .stamp.round { border-radius: 50%; padding: 14px 18px; }
+  .stamp.oval  { border-radius: 50% / 38%; padding: 12px 20px; }
+  .stamp.rect  { border-radius: 6px; }
+  .stamp.si-red  { color: oklch(0.52 0.16 32); }
+  .stamp.si-blue { color: oklch(0.45 0.10 255); }
+  .stamp.si-ink  { color: var(--ink); }
+  .stamp.is-landed { opacity: 0.82; visibility: visible;
+                     animation: stampThunk 0.42s cubic-bezier(.2,1.6,.35,1) both; }
+  @keyframes stampThunk {
+    0%   { transform: rotate(var(--stamp-r)) scale(2.4); opacity: 0; }
+    62%  { transform: rotate(var(--stamp-r)) scale(0.94); opacity: 0.9; }
+    100% { transform: rotate(var(--stamp-r)) scale(1); opacity: 0.82; }
+  }
+  body.no-motion .stamp.is-landed { animation: none; }
+  .stamp-glyph { font-family: var(--serif); font-size: 17px; line-height: 1.1; }
+  .stamp-name { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; }
+  .stamp-sub { font-family: var(--mono); font-size: 8px; letter-spacing: 0.14em; opacity: 0.75; }
+
+  .love.wide { grid-column: span 6; min-height: 150px; }
+  @media (max-width: 880px) { .love.wide { grid-column: span 2; } }
+
+  /* ============ PLAYFUL SHAPES (tweakable) ============ */
+  body.shapes-playful .block.hero { border-radius: 56px 140px 56px 140px; }
+  body.shapes-playful .stats { border-radius: 999px; }
+  body.shapes-playful .stat:first-child { padding-left: 44px; }
+  body.shapes-playful .stat:last-child { padding-right: 44px; }
+  body.shapes-playful .block.sage { border-radius: 130px 130px 26px 26px; }
+  body.shapes-playful .block.butter.chapter-teaser { border-radius: 26px 26px 130px 26px; }
+  body.shapes-playful .block.rose { border-radius: 90px 26px 90px 26px; }
+  body.shapes-playful .proj { transition: transform 0.3s, box-shadow 0.3s; }
+  body.shapes-playful .proj:nth-child(3n+1) { border-radius: 70px 18px 18px 18px; transform: rotate(-0.5deg); }
+  body.shapes-playful .proj:nth-child(3n+2) { border-radius: 18px 18px 70px 18px; transform: rotate(0.4deg); }
+  body.shapes-playful .proj:nth-child(3n)   { border-radius: 18px 70px 18px 70px; }
+  body.shapes-playful .proj:hover { transform: rotate(0deg) translateY(-3px); }
+  body.shapes-playful .love:nth-child(6n+1) { border-radius: 60px 18px 60px 18px; transform: rotate(-0.6deg); }
+  body.shapes-playful .love:nth-child(6n+2) { border-radius: 999px 999px 18px 18px / 120px 120px 18px 18px; }
+  body.shapes-playful .love:nth-child(6n+3) { border-radius: 18px 60px 18px 60px; transform: rotate(0.6deg); }
+  body.shapes-playful .love:nth-child(6n+4) { border-radius: 18px 18px 90px 18px; transform: rotate(0.4deg); }
+  body.shapes-playful .love:nth-child(6n+5) { border-radius: 90px 18px 18px 18px; }
+  body.shapes-playful .love:nth-child(6n)   { border-radius: 18px 18px 18px 90px; transform: rotate(-0.4deg); }
+  body.shapes-playful .love.wide { border-radius: 999px; padding-left: 48px; padding-right: 48px;
+                                   align-items: flex-start; transform: rotate(0deg); }
+  @media (max-width: 880px) { body.shapes-playful .love.wide { border-radius: 40px; padding-left: 22px; padding-right: 22px; } }
+  body.shapes-playful .love:hover { transform: rotate(0deg) scale(1.02); }
+  body.shapes-playful .chapter-row:nth-child(odd) { border-radius: 999px 18px 18px 999px / 90px 18px 18px 90px; padding-left: 36px; }
+  body.shapes-playful .chapter-row:nth-child(even) { border-radius: 18px 999px 999px 18px / 18px 90px 90px 18px; }
+  @media (max-width: 760px) {
+    body.shapes-playful .chapter-row:nth-child(odd),
+    body.shapes-playful .chapter-row:nth-child(even) { border-radius: 24px; padding-left: 24px; }
+    body.shapes-playful .block.hero { border-radius: 32px 80px 32px 80px; }
+  }
+  body.shapes-playful .meta-card:nth-child(odd) { border-radius: 70px 14px 70px 14px; }
+  body.shapes-playful .meta-card:nth-child(even) { border-radius: 14px 70px 14px 70px; }
+  body.shapes-playful .marquee { border-radius: 999px; }
+
+  /* ============ SECRET TOAST ============ */
+  .secret-toast { position: fixed; left: 50%; bottom: 34px; transform: translateX(-50%);
+                  z-index: 10001; background: var(--ink); color: var(--c-cream);
+                  font-family: var(--mono); font-size: 12px; letter-spacing: 0.12em;
+                  text-transform: uppercase; padding: 12px 22px; border-radius: 999px;
+                  box-shadow: 0 6px 0 -2px rgba(27,26,23,0.4);
+                  animation: toastIn 0.35s cubic-bezier(.2,1.4,.4,1) both; }
+  @keyframes toastIn { from { transform: translate(-50%, 24px); opacity: 0; }
+                       to { transform: translate(-50%, 0); opacity: 1; } }
+
+  /* ============ COFFEE BADGE ============ */
+  .coffee-badge { position: absolute; left: -20px; bottom: -12px; width: 84px;
+                  height: 84px; z-index: 3; cursor: pointer; display: block;
+                  transition: transform 0.25s; }
+  .coffee-badge:hover { transform: scale(1.1); }
+  .coffee-badge:hover .cb-spin { animation-duration: 5s; }
+  .coffee-badge svg { width: 100%; height: 100%; display: block;
+                      filter: drop-shadow(0 3px 0 rgba(26,25,22,0.6)); }
+  .cb-spin { animation: cbSpin 16s linear infinite; }
+  @keyframes cbSpin { to { transform: rotate(360deg); } }
+  body.no-motion .cb-spin { animation: none; }
+  .cb-core { position: absolute; inset: 0; display: flex; align-items: center;
+             justify-content: center; font-size: 22px; color: var(--c-terra); }
+  @media (max-width: 760px) { .coffee-badge { width: 64px; height: 64px; left: -12px; bottom: -8px; } }
+
+  /* ============ STAT STRIP ============ */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+           background: var(--c-ink); color: var(--c-cream); border-radius: 24px;
+           padding: 0; border: 1px solid var(--ink); overflow: hidden;
+           box-shadow: 0 6px 0 -2px var(--ink); }
+  @media (max-width: 760px) { .stats { grid-template-columns: 1fr 1fr; } }
+  .stat { padding: 28px 22px; border-right: 1px dashed rgba(251,245,230,0.2);
+          display: flex; flex-direction: column; gap: 6px; min-height: 140px;
+          justify-content: space-between; transition: background 0.3s; }
+  .stat:hover { background: rgba(251,245,230,0.06); }
+  .stat:last-child { border-right: 0; }
+  @media (max-width: 760px) {
+    .stat:nth-child(2) { border-right: 0; }
+    .stat:nth-child(odd) { border-bottom: 1px dashed rgba(251,245,230,0.2); }
+  }
+  .stat-num { font-family: var(--serif); font-size: clamp(56px, 6vw, 84px); line-height: 0.95;
+              letter-spacing: -0.02em; }
+  .stat-num .ital { font-style: italic; color: var(--c-butter); }
+  .stat-label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em;
+                text-transform: uppercase; opacity: 0.78; }
+
+  /* ============ HOME GRID ============ */
+  .home-row { margin-top: 18px; }
+  .home-row2 { display: grid; gap: 18px; grid-template-columns: 1fr 1fr; margin-top: 18px; }
+  @media (max-width: 760px) { .home-row2 { grid-template-columns: 1fr; } }
+
+  /* mini map card */
+  .mini-map-block { padding: 28px 32px; }
+  @media (max-width: 760px) { .mini-map-block { padding: 22px; } }
+  .mini-map-block .block-kicker { color: rgba(26,25,22,0.7); }
+  .mini-map-head { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px 48px;
+                   align-items: end; margin-bottom: 8px; }
+  @media (max-width: 760px) { .mini-map-head { grid-template-columns: 1fr; gap: 10px; } }
+  .mini-wrap { background: var(--c-cream); border: 1px solid var(--ink); border-radius: 16px;
+               margin-top: 18px; padding: 18px; overflow: hidden; }
+  @media (max-width: 760px) { .mini-wrap { padding: 10px; } }
+  .mini-cta { margin-top: 14px; display: flex; align-items: center; justify-content: space-between;
+              gap: 12px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em;
+              text-transform: uppercase; flex-wrap: wrap; }
+  .mini-cta button { background: var(--ink); color: var(--c-cream); border: 0; padding: 10px 16px;
+                     border-radius: 999px; font: inherit; letter-spacing: 0.12em;
+                     text-transform: uppercase; cursor: pointer; display: inline-flex; gap: 6px;
+                     align-items: center; transition: transform 0.2s, background 0.2s; }
+  .mini-cta button:hover { background: var(--c-terra); transform: translateX(2px); }
+
+  /* chapter teaser */
+  .chapter-teaser { display: flex; flex-direction: column; gap: 14px; height: 100%; }
+  .chapter-teaser .yr { font-family: var(--mono); font-size: 12px; letter-spacing: 0.16em;
+                        text-transform: uppercase; opacity: 0.78; }
+  .chapter-teaser h3 { font-family: var(--serif); font-size: clamp(34px, 3.6vw, 46px); line-height: 1.04;
+                       margin: 0; font-weight: 400; text-wrap: balance; }
+  .chapter-teaser .body { font-size: 16px; line-height: 1.6; flex: 1; text-wrap: pretty; }
+  .chapter-teaser .foot { display: flex; gap: 10px; font-family: var(--mono); font-size: 11px;
+                          letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.78; }
+
+  /* tile */
+  .tile-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em;
+                text-transform: uppercase; opacity: 0.7; }
+  .tile-big { font-family: var(--serif); font-size: clamp(38px, 4.6vw, 56px); line-height: 1.04;
+              letter-spacing: -0.01em; margin: 6px 0; text-wrap: balance; }
+  .tile-big .ital { font-style: italic; }
+
+  /* lang strip block */
+  .langs-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin-top: 18px; }
+  @media (max-width: 760px) { .langs-strip { grid-template-columns: 1fr 1fr; } }
+  .lang { padding: 22px 16px; border-right: 1px solid rgba(26,25,22,0.18);
+          display: flex; flex-direction: column; gap: 4px; }
+  .lang:last-child { border-right: 0; }
+  @media (max-width: 760px) { .lang:nth-child(2) { border-right: 0; } }
+  .lang-script { font-family: "Noto Serif SC", var(--serif); font-size: clamp(38px, 5vw, 56px); line-height: 1; }
+  .lang-name { font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em;
+               text-transform: uppercase; opacity: 0.78; }
+  .lang-level { font-family: var(--serif); font-style: italic; font-size: 19px; opacity: 0.9; }
+
+  /* now snapshot */
+  .now-row { display: grid; grid-template-columns: 100px 1fr; padding: 12px 0;
+             border-top: 1px dashed rgba(26,25,22,0.25); }
+  .now-row:first-child { border-top: 0; }
+  .now-row .k { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em;
+                text-transform: uppercase; opacity: 0.78; padding-top: 4px; }
+  .now-row .v { font-family: var(--serif); font-size: 20px; line-height: 1.45; text-wrap: pretty; }
+  .now-row .v .ital { font-style: italic; }
+
+  /* marquee strip */
+  .marquee { background: var(--c-ink); color: var(--c-cream); border-radius: 999px;
+             overflow: hidden; padding: 14px 0; border: 1px solid var(--ink);
+             box-shadow: 0 6px 0 -2px var(--ink); white-space: nowrap; }
+  .marquee-inner { display: inline-flex; gap: 36px; animation: marquee 28s linear infinite;
+                   font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em;
+                   text-transform: uppercase; }
+  .marquee-inner span { display: inline-flex; align-items: center; gap: 16px; }
+  .marquee-inner span::after { content: "✦"; color: var(--c-terra); opacity: 0.8; }
+  @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+  /* ============ LIFEMAP (shared) ============ */
+  .lifemap { position: relative; display: grid; grid-template-columns: 1fr 320px;
+             gap: 18px; align-items: start; }
+  .lifemap.is-compact { display: block; padding: 0; }
+  .lifemap-stage { position: relative; min-width: 0; }
+  .lifemap-svg { width: 100%; height: auto; display: block; }
+  .lifemap-card { width: auto; align-self: start; position: sticky; top: 96px;
+                  background: var(--c-cream); border: 1px solid var(--ink);
+                  border-radius: 18px; padding: 20px;
+                  box-shadow: 0 6px 0 -2px var(--ink); }
+  .lifemap-card-kicker { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+                         display: flex; align-items: center; gap: 8px; color: var(--ink-2); }
+  .lifemap-card-kicker .dot { width: 6px; height: 6px; border-radius: 50%;
+                              background: var(--c-terra); display: inline-block; }
+  .lifemap-card-title { font-size: 38px; line-height: 1; margin: 10px 0 4px; }
+  .lifemap-card-sub { font-size: 11px; color: var(--muted); letter-spacing: 0.08em;
+                      text-transform: uppercase; margin-bottom: 14px; }
+  .lifemap-card-note { font-size: 15px; line-height: 1.5; color: var(--ink-2);
+                       padding-top: 12px; border-top: 1px solid var(--rule); }
+  .lifemap-card-moment { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+                         color: var(--c-terra); margin-top: 10px; }
+  .lifemap-card-coords { font-size: 10px; color: var(--muted); margin-top: 14px;
+                         letter-spacing: 0.06em; }
+  @media (max-width: 880px) {
+    .lifemap { grid-template-columns: 1fr; }
+    .lifemap-card { position: static; width: auto; }
+  }
+
+  .lifemap-legend { position: absolute; left: 12px; bottom: 12px; white-space: nowrap;
+                    display: flex; gap: 14px; font-size: 10px; letter-spacing: 0.14em;
+                    text-transform: uppercase; color: var(--ink-2);
+                    background: var(--c-cream); border: 1px solid var(--ink);
+                    border-radius: 999px; padding: 8px 14px;
+                    box-shadow: 0 4px 0 -2px var(--ink); align-items: center; }
+  .lifemap-legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .lg-lived { width: 8px; height: 8px; border-radius: 50%; background: var(--c-terra);
+              outline: 1px solid var(--c-terra); outline-offset: 2px; }
+  .lg-trav { width: 8px; height: 8px; border-radius: 50%;
+             background: var(--c-cream); border: 1.4px solid var(--ink); }
+  .lg-line { width: 22px; height: 0; border-top: 1.8px solid var(--c-terra); }
+  .replay-btn { background: var(--ink); color: var(--c-cream); border: 0; white-space: nowrap;
+                padding: 4px 10px; border-radius: 999px; font-family: var(--mono);
+                font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+                cursor: pointer; margin-left: 4px; }
+  .replay-btn:hover { background: var(--c-terra); }
+  @media (max-width: 760px) { .lifemap-legend { position: static; margin-top: 12px; flex-wrap: wrap; } }
+
+  .lifemap-strip { grid-column: 1 / -1; display: flex; gap: 8px; margin-top: 0; overflow-x: auto; }
+
+  /* zoom controls */
+  .map-zoom { position: absolute; right: 12px; top: 12px; z-index: 3;
+              display: flex; flex-direction: column; align-items: center; gap: 5px;
+              background: var(--c-cream); border: 1px solid var(--ink);
+              border-radius: 999px; padding: 7px;
+              box-shadow: 0 4px 0 -2px var(--ink); }
+  .map-zoom button { width: 30px; height: 30px; border-radius: 50%;
+                     border: 1px solid var(--ink); background: var(--c-cream);
+                     color: var(--ink); cursor: pointer; font-family: var(--mono);
+                     font-size: 16px; line-height: 1; padding: 0;
+                     display: flex; align-items: center; justify-content: center;
+                     transition: background 0.15s, color 0.15s, transform 0.15s; }
+  .map-zoom button:hover:not(:disabled) { background: var(--c-terra); color: var(--c-cream);
+                                          transform: scale(1.08); }
+  .map-zoom button:disabled { opacity: 0.35; cursor: default; }
+  .map-zoom .zoom-lvl { font-size: 9px; letter-spacing: 0.04em; opacity: 0.7; }
+  .strip-btn { flex: 1; min-width: 140px; display: flex; flex-direction: column; align-items: flex-start;
+               gap: 4px; padding: 14px 16px; background: var(--c-cream); cursor: pointer;
+               text-align: left; color: var(--ink); border: 1px solid var(--ink);
+               border-radius: 14px; box-shadow: 0 4px 0 -2px var(--ink);
+               transition: transform 0.2s, background 0.2s; }
+  .strip-btn:hover { transform: translateY(-2px); }
+  .strip-btn.is-active { background: var(--c-terra); color: var(--c-cream); }
+  .strip-era { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.8; }
+  .strip-name { font-family: var(--serif); font-size: 24px; line-height: 1; }
+
+  /* ============ ATLAS TAB ============ */
+  .atlas-block { padding: 24px; }
+  .atlas-meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+                margin-top: 18px; }
+  @media (max-width: 760px) { .atlas-meta { grid-template-columns: 1fr 1fr; } }
+  .meta-card { background: var(--c-cream); border: 1px solid var(--ink);
+               border-radius: 14px; padding: 16px; min-height: 110px;
+               box-shadow: 0 4px 0 -2px var(--ink); display: flex; flex-direction: column;
+               justify-content: space-between; }
+  .meta-card .k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+                  text-transform: uppercase; opacity: 0.7; }
+  .meta-card .v { font-family: var(--serif); font-size: 32px; line-height: 1; }
+
+  /* ============ WORK TAB ============ */
+  .work-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; }
+  @media (max-width: 880px) { .work-grid { grid-template-columns: 1fr; } }
+  .proj { grid-column: span 3; padding: 26px; border-radius: 18px;
+          border: 1px solid var(--ink); box-shadow: 0 6px 0 -2px var(--ink);
+          display: flex; flex-direction: column; gap: 10px; min-height: 280px;
+          position: relative; transition: transform 0.25s, box-shadow 0.25s; }
+  .proj:hover { transform: translateY(-3px); box-shadow: 0 9px 0 -2px var(--ink); }
+  .proj.feat { grid-column: span 6; min-height: 320px; }
+  .proj.third { grid-column: span 2; }
+  @media (max-width: 880px) { .proj, .proj.feat, .proj.third { grid-column: span 1; } }
+  .proj.c-cream { background: var(--c-cream); }
+  .proj.c-butter { background: var(--c-butter); }
+  .proj.c-sage { background: var(--c-sage); }
+  .proj.c-sky { background: var(--c-sky); }
+  .proj.c-rose { background: var(--c-rose); }
+  .proj.c-mint { background: var(--c-mint); }
+  .proj.c-pink { background: var(--c-pink); }
+  .proj.c-lemon { background: var(--c-lemon); }
+  .proj-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .proj-num { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em;
+              opacity: 0.6; }
+  .proj-status { font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em;
+                 text-transform: uppercase; padding: 3px 9px; border-radius: 999px;
+                 border: 1px solid var(--ink); background: var(--c-cream); color: var(--ink); }
+  .proj-status.shipped { background: var(--ink); color: var(--c-cream); }
+  .proj-status.wip { background: var(--c-terra); color: var(--c-cream); border-color: var(--c-terra); }
+  .proj-kicker { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em;
+                 text-transform: uppercase; opacity: 0.7; }
+  .proj-title { font-family: var(--serif); font-size: 32px; line-height: 1.05; margin: 4px 0 4px;
+                font-weight: 400; }
+  .proj.feat .proj-title { font-size: 52px; }
+  .proj-title .ital { font-style: italic; }
+  .proj-text { font-size: 15px; line-height: 1.6; opacity: 0.9; flex: 1; text-wrap: pretty; }
+  .proj-stack { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .chip { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+          text-transform: uppercase; padding: 4px 9px; border: 1px solid var(--ink);
+          border-radius: 999px; }
+
+  /* ============ LIFE TAB — chapters ============ */
+  .chapter-rows { display: flex; flex-direction: column; gap: 14px; margin-top: 18px; }
+  .chapter-row { display: grid; grid-template-columns: 120px 1.4fr 1fr 116px; gap: 24px;
+                 padding: 22px 24px; border: 1px solid var(--ink); border-radius: 18px;
+                 box-shadow: 0 4px 0 -2px var(--ink); position: relative;
+                 transition: transform 0.25s; align-items: start; }
+  .chapter-row:hover { transform: translateX(4px); }
+  .chapter-row.c-cream { background: var(--c-cream); }
+  .chapter-row.c-butter { background: var(--c-butter); }
+  .chapter-row.c-sage { background: var(--c-sage); }
+  .chapter-row.c-sky { background: var(--c-sky); }
+  .chapter-row.c-rose { background: var(--c-rose); }
+  .chapter-row.c-mint { background: var(--c-mint); }
+  @media (max-width: 760px) { .chapter-row { grid-template-columns: 1fr; gap: 8px; } }
+  .ch-yr { font-family: var(--mono); font-size: 13px; opacity: 0.7; padding-top: 4px; }
+  .ch-where { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em;
+              text-transform: uppercase; color: var(--c-terra); margin-bottom: 6px; }
+  .ch-title { font-family: var(--serif); font-size: 28px; line-height: 1.1; margin: 0 0 12px;
+               font-weight: 400; text-wrap: balance; }
+  .ch-text { font-size: 15px; line-height: 1.65; opacity: 0.9; }
+  .ch-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+  .ch-photo { width: 116px; height: 116px; border: 1px solid var(--ink); border-radius: 12px;
+              overflow: hidden; background: var(--c-cream); justify-self: end;
+              box-shadow: 0 4px 0 -2px var(--ink); transform: rotate(2.5deg);
+              transition: transform 0.25s; }
+  .chapter-row:nth-child(even) .ch-photo { transform: rotate(-2.5deg); }
+  .chapter-row:hover .ch-photo { transform: rotate(0deg) scale(1.05); }
+  .ch-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ch-photo .ch-ph-empty { width: 100%; height: 100%; display: flex; align-items: center;
+    justify-content: center; text-align: center; padding: 8px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--muted); }
+  @media (max-width: 760px) { .ch-photo { justify-self: start; } }
+
+  /* loves */
+  .loves-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-top: 18px; }
+  @media (max-width: 880px) { .loves-grid { grid-template-columns: 1fr 1fr; } }
+  .love { padding: 22px; border-radius: 18px; border: 1px solid var(--ink);
+          box-shadow: 0 5px 0 -2px var(--ink); grid-column: span 2;
+          transition: transform 0.3s, box-shadow 0.3s;
+          display: flex; flex-direction: column; gap: 10px; min-height: 200px;
+          transition: transform 0.2s; }
+  .love:hover { transform: rotate(-1deg) scale(1.02); }
+  .love:nth-child(1) { grid-column: span 3; }
+  .love:nth-child(4) { grid-column: span 3; }
+  @media (max-width: 880px) { .love, .love:nth-child(1), .love:nth-child(4) { grid-column: span 1; } }
+  .love.c-cream { background: var(--c-cream); }
+  .love.c-butter { background: var(--c-butter); }
+  .love.c-sage { background: var(--c-sage); }
+  .love.c-sky { background: var(--c-sky); }
+  .love.c-rose { background: var(--c-rose); }
+  .love.c-mint { background: var(--c-mint); }
+  .love.c-pink { background: var(--c-pink); }
+  .love-emoji { font-family: var(--serif); font-style: italic; font-size: 50px; line-height: 1;
+                opacity: 0.7; }
+  .love-title { font-family: var(--serif); font-size: 28px; line-height: 1; margin-top: 4px; }
+  .love-text { font-size: 15px; line-height: 1.6; opacity: 0.9; flex: 1; }
+  .love-foot { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em;
+               text-transform: uppercase; opacity: 0.7; }
+
+  /* ============ PHOTOS TAB ============ */
+  .photos { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px;
+            grid-auto-rows: 100px; margin-top: 18px; }
+  .ph { border: 1px solid var(--ink); border-radius: 14px; box-shadow: 0 4px 0 -2px var(--ink);
+        position: relative; overflow: hidden; transition: transform 0.25s; }
+  .ph:hover { transform: scale(1.02); }
+  .ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ph .ph-empty { position: absolute; inset: 0; display: flex; align-items: center;
+    justify-content: center; font-family: var(--mono); font-size: 11px;
+    letter-spacing: 0.14em; text-transform: uppercase; color: rgba(26,25,22,0.45); }
+  .ph-cap { position: absolute; left: 10px; bottom: 10px;
+            font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em;
+            text-transform: uppercase; color: var(--ink); display: inline-flex; gap: 8px;
+            align-items: center; pointer-events: none; white-space: nowrap;
+            background: var(--c-cream); border: 1px solid var(--ink);
+            padding: 4px 10px; border-radius: 999px; max-width: calc(100% - 20px); }
+  .ph-cap span { white-space: nowrap; }
+  .ph-cap .roll { color: var(--c-terra); border-left: 1px solid rgba(0,0,0,0.2); padding-left: 8px; }
+  .ph-expand { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px;
+               border-radius: 50%; border: 1px solid var(--ink); background: var(--c-cream);
+               color: var(--ink); cursor: pointer; font-family: var(--mono); font-size: 13px;
+               display: flex; align-items: center; justify-content: center;
+               opacity: 0; transition: opacity 0.2s, background 0.15s, color 0.15s; z-index: 2; }
+  .ph:hover .ph-expand, .ph-expand:focus-visible { opacity: 1; }
+  .ph-expand:hover { background: var(--c-terra); color: var(--c-cream); }
+  @media (pointer: coarse) { .ph-expand { opacity: 1; } }
+
+  /* ============ LIGHTBOX ============ */
+  .lb { position: fixed; inset: 0; z-index: 100; background: rgba(26,25,22,0.9);
+        display: flex; align-items: center; justify-content: center;
+        animation: lbIn 0.25s ease both; }
+  @keyframes lbIn { from { opacity: 0; } to { opacity: 1; } }
+  .lb-frame { background: var(--c-ink); border: 1px solid rgba(251,245,230,0.25);
+              border-radius: 14px; padding: 0 18px; max-width: 82vw;
+              animation: lbFrame 0.3s cubic-bezier(.22,1,.36,1) both; }
+  @keyframes lbFrame { from { transform: scale(0.92); } to { transform: none; } }
+  .lb-sprockets { height: 20px; margin: 12px 0;
+                  background-image: radial-gradient(rgba(251,245,230,0.85) 0 4.5px, transparent 5px);
+                  background-size: 32px 20px; background-repeat: repeat-x;
+                  background-position: center; }
+  .lb-stage { position: relative; overflow: hidden; border-radius: 4px; }
+  .lb-stage img { display: block; max-width: 74vw; max-height: 60vh;
+                  border: 1px solid rgba(251,245,230,0.2); }
+  .lb-empty { width: min(74vw, 560px); height: 320px; display: flex; align-items: center;
+              justify-content: center; color: rgba(251,245,230,0.6); font-size: 12px;
+              letter-spacing: 0.1em; text-transform: uppercase;
+              border: 1px dashed rgba(251,245,230,0.3); border-radius: 4px; }
+  .lb-shutter { position: absolute; inset: 0; background: #000;
+                animation: shutterOpen 0.32s cubic-bezier(.7,0,.3,1) both; }
+  @keyframes shutterOpen { 0% { transform: scaleY(1); } 35% { transform: scaleY(1); }
+                           100% { transform: scaleY(0); } }
+  .lb-bar { display: flex; justify-content: space-between; gap: 16px;
+            color: var(--c-cream); padding: 2px 2px 14px; font-size: 11px;
+            letter-spacing: 0.12em; text-transform: uppercase; }
+  .lb-bar .lb-roll { color: var(--c-terra); }
+  .lb-x, .lb-nav { position: fixed; width: 46px; height: 46px; border-radius: 50%;
+                   border: 1px solid var(--ink); background: var(--c-cream); color: var(--ink);
+                   cursor: pointer; font-size: 16px; display: flex; align-items: center;
+                   justify-content: center; box-shadow: 0 4px 0 -2px var(--ink);
+                   transition: background 0.15s, color 0.15s, transform 0.15s; }
+  .lb-x:hover, .lb-nav:hover { background: var(--c-terra); color: var(--c-cream);
+                               transform: scale(1.08); }
+  .lb-x { top: 22px; right: 26px; }
+  .lb-nav { top: 50%; margin-top: -23px; }
+  .lb-prev { left: 26px; }
+  .lb-next { right: 26px; }
+  @media (max-width: 760px) {
+    .lb-nav { top: auto; bottom: 18px; margin-top: 0; }
+    .lb-prev { left: 22vw; }
+    .lb-next { right: 22vw; }
+  }
+  .ph.t-1 { grid-column: span 5; grid-row: span 3; background: var(--c-sky); }
+  .ph.t-2 { grid-column: span 4; grid-row: span 2; background: var(--c-butter); }
+  .ph.t-3 { grid-column: span 3; grid-row: span 2; background: var(--c-rose); }
+  .ph.t-4 { grid-column: span 4; grid-row: span 2; background: var(--c-sage); }
+  .ph.t-5 { grid-column: span 3; grid-row: span 2; background: var(--c-mint); }
+  .ph.t-6 { grid-column: span 5; grid-row: span 2; background: var(--c-pink); }
+  .ph.t-7 { grid-column: span 4; grid-row: span 2; background: var(--c-cream); }
+  .ph.t-8 { grid-column: span 8; grid-row: span 3; background: var(--c-butter); }
+  .ph.t-9 { grid-column: span 4; grid-row: span 3; background: var(--c-rose); }
+  @media (max-width: 760px) {
+    .photos { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 140px; }
+    .ph { grid-column: span 1 !important; grid-row: span 2 !important; }
+  }
+
+  /* ============ FOOTER ============ */
+  footer { margin-top: 36px; padding: 28px; background: var(--c-cream);
+           border: 1px solid var(--ink); border-radius: 24px;
+           box-shadow: 0 6px 0 -2px var(--ink); display: flex; justify-content: space-between;
+           align-items: center; flex-wrap: wrap; gap: 16px;
+           font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em;
+           text-transform: uppercase; color: var(--ink-2); }
+  .foot-links { display: flex; gap: 18px; }
+  .foot-links a { text-decoration: none; color: var(--ink); padding: 8px 14px;
+                  background: var(--c-butter); border: 1px solid var(--ink);
+                  border-radius: 999px; box-shadow: 0 3px 0 -1px var(--ink);
+                  transition: transform 0.2s, background 0.2s; }
+  .foot-links a:hover { transform: translateY(-2px); background: var(--c-terra); color: var(--c-cream); }
+  .foot-links a:nth-child(2) { background: var(--c-sage); }
+  .foot-links a:nth-child(3) { background: var(--c-sky); }
+
+  /* utility */
+  .ink2 { color: var(--ink-2); }
+  .muted { color: var(--muted); }
+`;
+
+// ============================ DATA ============================
+
+const GREETS = [
+{ script: "你好", tag: "MANDARIN" },
+{ script: "你好啊", tag: "粵語" },
+{ script: "Hello", tag: "ENGLISH" },
+{ script: "Hallo", tag: "DEUTSCH" }];
+
+
+const STATS = [
+{ num: "5", label: "Cities lived" },
+{ num: "4", label: "Languages spoken" },
+{ num: "20+", label: "Countries visited" },
+{ num: "5", label: "Years on Wall St." }];
+
+
+const CHAPTERS = [
+{ yr: "Chapter 01", where: "Guangzhou", title: "Born on the Pearl River.",
+  text: "Cantonese household. Dim sum tables, jasmine tea, Saturday markets.",
+  tags: ["Cantonese", "Mandarin"], color: "c-rose" },
+{ yr: "Chapter 02", where: "Nashville · Vanderbilt", title: "A double-major no one expected.",
+  text: "Math + Child Development — proof and play. Toddler cognition lab, multivariable grading, Magna Cum Laude.",
+  tags: ["Math", "Child Development", "German minor"], color: "c-butter" },
+{ yr: "Chapter 03", where: "Vienna · Wien", title: "A semester in Deutsch.",
+  text: "European philosophy in a language that was mostly verbs and umlauts. SOS Children's Villages on the side.",
+  tags: ["Deutsch", "SOS CV", "Kaffeehäuser"], color: "c-sage" },
+{ yr: "Chapter 04", where: "Brooklyn · NYU Tandon", title: "Math, with money attached.",
+  text: "MS Financial Engineering. Genetic algorithms in C++; LSTMs trying to predict Apple. A global pandemic interrupting most of it.",
+  tags: ["C++", "ML", "Portfolio theory", "UN"], color: "c-sky" },
+{ yr: "Now", where: "Jersey City · Wall St.", title: "Building the systems behind the decisions.",
+  text: "Almost five years as a quantitative strategist across the Hudson. Client segmentation, deposit-retention models, a multi-billion PnL redesign. I like when a number actually changes a decision.",
+  tags: ["Quant", "Segmentation", "Retention"], color: "c-mint" }];
+
+
+const PROJECTS = [
+{ n: "01", feat: true, color: "c-butter", status: "shipped",
+  kicker: "Wall St. · year one", title: "Loan-level PnL system",
+  text: "End-to-end redesign of the PnL pipeline for a multi-billion portfolio. Real-time dashboards, full data-pipeline rewrite. Cut manual review by 30%.",
+  stack: ["SLANG", "SQL", "TypeScript", "Real-time"] },
+{ n: "02", color: "c-sage", status: "shipped",
+  kicker: "Wall St. · year two", title: "Client segmentation",
+  text: "K-means cohorts of wealth-management clients. Powered targeted outreach; double-digit lift in cross-sell.",
+  stack: ["Python", "Scikit-learn", "PowerBI"] },
+{ n: "03", color: "c-sky", status: "shipped",
+  kicker: "Wall St. · year two", title: "Deposit retention model",
+  text: "GBM + regression to predict attrition and surface behavioral drivers. Material contribution to annual funding value.",
+  stack: ["Python", "GBM", "Time series"] },
+{ n: "04", third: true, color: "c-rose", status: "research",
+  kicker: "Grad school · research", title: "GA Portfolio",
+  text: "C++ genetic algorithm with custom fitness. Beat the market in backtests.",
+  stack: ["C++", "libcurl", "SQLite"] },
+{ n: "05", third: true, color: "c-mint", status: "research",
+  kicker: "Grad school · research", title: "Bankruptcy & AAPL",
+  text: "Classical ML for bankruptcy prediction; GRU/LSTM for daily-return modeling on AAPL. Strong in-sample performance.",
+  stack: ["Keras", "LSTM", "SVM", "RF"] },
+{ n: "06", third: true, color: "c-pink", status: "published",
+  kicker: "UN · summer intern", title: "JPO retention analysis",
+  text: "Logistic regression across 30 countries. Authored sections of the JPO Alumni Report.",
+  stack: ["Python", "PowerBI"] },
+{ n: "07", color: "c-lemon", status: "published",
+  kicker: "Undergrad · research lab", title: "Toddler cognition lab",
+  text: "Studies on 24-month-olds' understanding of pictures & video. Awarded grant; contributed to publications; highest honor on thesis.",
+  stack: ["SPSS", "Bootstrap", "Thesis"] },
+{ n: "08", color: "c-cream", status: "wip",
+  kicker: "Personal · now", title: "In the kitchen",
+  text: "Something new — tell me what to put here and I'll write it up properly.",
+  stack: ["TBD"] }];
+
+
+const LOVES = [
+{ color: "c-sky", emoji: "f/2.0", title: "Photography",
+  text: "Mostly digital, sometimes film. Cities at dusk, strangers' hands, the geometry of train stations.",
+  foot: "ROLLING SHUTTER" },
+{ color: "c-butter", emoji: "ß", title: "Languages",
+  text: "Four scripts I think in: 中文, 粤语, English, Deutsch. I collect idioms that don't survive translation.",
+  foot: "FOUR ON ROTATION" },
+{ color: "c-mint", emoji: "↻", title: "Long walks",
+  text: "I will out-walk you. Current project: the High Line end to end, then improvising until my feet file a complaint.",
+  foot: "10K+ STEPS / DAY" },
+{ color: "c-rose", emoji: "★", title: "Markets",
+  text: "Both kinds. The kind with order books and the kind with peaches. I cook everything from one.",
+  foot: "SATURDAY MORNINGS" },
+{ color: "c-sage", emoji: "✎", title: "Reading",
+  text: "Lately: Lulu Miller's Why Fish Don't Exist, Andy Weir's Project Hail Mary. Slow with novels, generous with margins.",
+  foot: "BORROWS > BUYS" },
+{ color: "c-pink", emoji: "ψ", title: "Toddlers",
+  text: "Two years of research will do that to you. Still curious how a 2-y-o decides a photo is a thing.",
+  foot: "RESEARCH HABIT" },
+{ color: "c-sage", emoji: "▲", title: "National parks", wide: true,
+  text: "Collecting them slowly — trailheads, tide pools, the smell of a forest after rain. The goal is all 63; the method is one long weekend at a time.",
+  foot: "NEXT STAMP: ACADIA" }];
+
+
+const LANGS = [
+{ script: "中文", name: "Mandarin", level: "native" },
+{ script: "粵語", name: "Cantonese", level: "native" },
+{ script: "English", name: "English", level: "fluent" },
+{ script: "Deutsch", name: "German", level: "advanced" }];
+
+
+const NOW = [
+{ k: "Working", v: <>Deposit retention + a redesigned <span className="ital">PnL system</span> at the day job.</> },
+{ k: "Reading", v: <>Lulu Miller, <span className="ital">Why Fish Don't Exist</span>. Andy Weir, <span className="ital">Project Hail Mary</span>.</> },
+{ k: "Cooking", v: <>Recreating my mom's 蒜蓉粉丝蒸扇贝.</> },
+{ k: "Walking", v: <>The High Line, end to end — then wherever the next espresso is.</> },
+{ k: "Next trip", v: <>Acadia National Park — tide pools, granite, sunrise from Cadillac Mountain.</> }];
+
+
+const PHOTOS = [
+{ id: "ph-1", t: 1, cap: "VIENNA · SEMESTER ABROAD", roll: "01" },
+{ id: "ph-2", t: 2, cap: "SAN DIEGO, CA", roll: "02", img: "images/ph-2.jpg" },
+{ id: "ph-3", t: 3, cap: "GUANGZHOU · 春节", roll: "03" },
+{ id: "ph-4", t: 4, cap: "UYUNI · SALT FLATS", roll: "04" },
+{ id: "ph-5", t: 5, cap: "INNSBRUCK · ALPS", roll: "05" },
+{ id: "ph-6", t: 6, cap: "NASHVILLE, FALL", roll: "06" },
+{ id: "ph-7", t: 7, cap: "CUSCO · ANDES", roll: "07" },
+{ id: "ph-8", t: 8, cap: "NIAGARA FALLS", roll: "08" },
+{ id: "ph-9", t: 9, cap: "BUDAPEST · KELETI", roll: "09" }];
+
+
+const MARQUEE = [
+"QUANT STRATEGIST", "JERSEY CITY · NJ", "FROM GUANGZHOU", "FOUR LANGUAGES",
+"WHY FISH DON'T EXIST", "WALKING THE HIGH LINE", "蒜蓉粉丝蒸扇贝", "ACADIA NEXT ▲", "AVAILABLE FOR COFFEE"];
+
+
+// ============================ COMPONENTS ============================
+
+function Topbar({ tab, setTab }) {
+  const TABS = ["home", "atlas", "work", "life", "photos"];
+  return (
+    <nav className="topbar">
+      <div className="nav-brand">
+        <span className="dot" />
+        Eylon <span style={{ fontStyle: "italic", color: "var(--c-terra)" }}>Liu</span>
+      </div>
+      <div className="tabs">
+        {TABS.map((t) =>
+        <button key={t}
+        className={"tab-btn" + (tab === t ? " is-active" : "")}
+        onClick={() => setTab(t)}>{t}</button>
+        )}
+      </div>
+      <div className="nav-loc">
+        <span className="live-dot" /> JERSEY CITY · NJ
+      </div>
+    </nav>);
+
+}
+
+function Hero({ goAtlas }) {
+  return (
+    <div className="block cream hero ov" data-screen-label="01 Hero">
+      <HeroStickers />
+      <div>
+        <div className="hero-greet">
+          {GREETS.map((g, i) =>
+          <span key={i}>
+              <em>{g.script}</em>
+              <span className="tag">/ {g.tag}</span>
+            </span>
+          )}
+        </div>
+        <h1 className="hero-name">Eylon <span className="ital">Liu</span></h1>
+        <div className="hero-cn" style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontSize: "clamp(22px, 3vw, 32px)", opacity: 0.7 }}>Xinyu Liu</div>
+        <div className="hero-pron">
+          Pronounced <span className="pron-pill">/ ee · len /</span>
+        </div>
+      </div>
+      <div className="avatar-wrap">
+        <div className="avatar">
+          <img src="images/hero-avatar.jpg" alt="Cartoon avatar of Eylon Liu" />
+        </div>
+        <div className="avatar-sticker" title="click me"
+        onClick={(e) => confettiBurst(e.clientX, e.clientY)}>Hi!<br />this is me</div>
+        <CoffeeBadge />
+      </div>
+    </div>);
+
+}
+
+function StatStrip() {
+  return (
+    <div className="stats rv">
+      {STATS.map((s, i) =>
+      <div className="stat" key={i}>
+          <div className="stat-num">
+            {i === 1 || i === 3 ? <span className="ital">{s.num}</span> : s.num}
+          </div>
+          <div className="stat-label">{s.label}</div>
+        </div>
+      )}
+    </div>);
+
+}
+
+function MiniMap({ goAtlas }) {
+  return (
+    <div className="block sky mini-map-block rv" data-comment-anchor="31681b397f-div-603-5">
+      <div className="mini-map-head">
+        <div>
+          <div className="block-kicker">↗ Atlas · preview</div>
+          <h2 className="block-title">A <span className="ital">life</span>, plotted.</h2>
+        </div>
+        <p className="block-lede" style={{ marginTop: 0 }}>
+          Five cities lived, a dozen borrowed. Tap below to fly the path.
+        </p>
+      </div>
+      <div className="mini-wrap">
+        <LifeMap compact autoplay />
+      </div>
+      <div className="mini-cta">
+        <span className="muted">Guangzhou → Nashville → Wien → Brooklyn → JC</span>
+        <button onClick={goAtlas}>Open atlas →</button>
+      </div>
+    </div>);
+
+}
+
+function ChapterTeaser() {
+  const c = CHAPTERS[CHAPTERS.length - 1];
+  return (
+    <div className="block butter chapter-teaser rv" data-screen-label="03 Chapter Teaser">
+      <div className="yr">Current chapter</div>
+      <h3>{c.title}</h3>
+      <p className="body">{c.text}</p>
+      <div className="foot">
+        {c.tags.slice(0, 3).map((t) => <span key={t}>· {t}</span>)}
+      </div>
+    </div>);
+
+}
+
+function NowSnapshot() {
+  return (
+    <div className="block sage rv" style={{ "--rv-d": "90ms" }} data-screen-label="04 Now">
+      <div className="block-kicker">/now · May '26</div>
+      <h2 className="block-title">Currently <span className="ital">/now/</span></h2>
+      <div style={{ marginTop: 18 }}>
+        {NOW.map((row, i) =>
+        <div className="now-row" key={i}>
+            <div className="k">{row.k}</div>
+            <div className="v">{row.v}</div>
+          </div>
+        )}
+      </div>
+    </div>);
+
+}
+
+function LangBlock() {
+  return (
+    <div className="block rose rv" data-screen-label="05 Languages">
+      <div className="block-kicker">§ tongues</div>
+      <h2 className="block-title">Four <span className="ital">scripts</span>.</h2>
+      <div className="langs-strip">
+        {LANGS.map((l, i) =>
+        <div className="lang" key={i}>
+            <div className="lang-script">{l.script}</div>
+            <div className="lang-name">{l.name}</div>
+            <div className="lang-level">{l.level}</div>
+          </div>
+        )}
+      </div>
+    </div>);
+
+}
+
+function Marquee() {
+  // duplicate for seamless loop
+  const items = [...MARQUEE, ...MARQUEE];
+  return (
+    <div className="marquee rv">
+      <div className="marquee-inner">
+        {items.map((m, i) => <span key={i}>{m}</span>)}
+      </div>
+    </div>);
+
+}
+
+// ---------------- TABS ----------------
+
+function HomeTab({ goAtlas }) {
+  return (
+    <div className="tab-content is-entering" key="home">
+      <Hero />
+      <div style={{ height: 18 }} />
+      <StatStrip />
+      <div className="home-row">
+        <MiniMap goAtlas={goAtlas} />
+      </div>
+      <div className="home-row2">
+        <ChapterTeaser />
+        <NowSnapshot />
+      </div>
+      <div className="home-row" style={{ marginTop: 18 }}>
+        <LangBlock />
+      </div>
+      <div style={{ height: 18 }} />
+      <Marquee />
+    </div>);
+
+}
+
+function AtlasTab() {
+  return (
+    <div className="tab-content is-entering" key="atlas">
+      <div className="block cream atlas-block ov" data-screen-label="02 Atlas">
+        <span className="peel p-sky" style={{ top: "-16px", right: "60px", "--peel-r": "3deg" }}>par avion ✈︎</span>
+        <div className="block-head">
+          <div>
+            <div className="block-kicker">§ atlas · interactive</div>
+            <h2 className="block-title">A <span className="ital">life</span>, plotted.</h2>
+          </div>
+          <p className="block-lede">
+            Click any pin and the journey draws to it. Each city has its own story —
+            the side card opens. <em>↻ Replay</em> the whole trip from the top.
+          </p>
+        </div>
+        <div style={{ background: "var(--c-cream)", border: "1px solid var(--ink)",
+          borderRadius: 18, padding: 16, position: "relative" }}>
+          <LifeMap />
+        </div>
+      </div>
+      <div className="atlas-meta">
+        <div className="meta-card rv" style={{ background: "var(--c-butter)" }}>
+          <div className="k">Hometown</div>
+          <div className="v">广州<br /><span style={{ fontStyle: "italic", fontSize: "0.5em", opacity: 0.7 }}>guangzhou</span></div>
+        </div>
+        <div className="meta-card rv" style={{ background: "var(--c-sage)", "--rv-d": "70ms" }}>
+          <div className="k">Cities lived</div>
+          <div className="v">5<span style={{ fontSize: "0.4em", opacity: 0.7 }}> &amp; counting</span></div>
+        </div>
+        <div className="meta-card rv" style={{ background: "var(--c-sky)", "--rv-d": "140ms" }}>
+          <div className="k">Home now</div>
+          <div className="v">Jersey City</div>
+        </div>
+        <div className="meta-card rv" style={{ background: "var(--c-rose)", "--rv-d": "210ms" }}>
+          <div className="k">Continents</div>
+          <div className="v">3</div>
+        </div>
+      </div>
+    </div>);
+
+}
+
+function WorkTab() {
+  return (
+    <div className="tab-content is-entering" key="work">
+      <div className="block cream ov" data-screen-label="06 Work header">
+        <span className="peel p-butter" style={{ top: "-16px", right: "56px", "--peel-r": "-3deg" }}>★ shipped &amp; shipping</span>
+        <span className="block-glyph">№</span>
+        <div className="block-head">
+          <div>
+            <div className="block-kicker">§ work · projects</div>
+            <h2 className="block-title">Things I've <span className="ital">built</span>.</h2>
+          </div>
+          <p className="block-lede">
+            Shipped, researched, published — and one still in the kitchen.
+            The number game: a multi-billion portfolio, double-digit lift in cross-sell,
+            strong out-of-sample accuracy, and one stubborn LSTM that finally cooperated.
+          </p>
+        </div>
+        <div className="work-grid">
+          {PROJECTS.map((p, i) => {
+            const klass = "proj rv " + p.color + (p.feat ? " feat" : "") + (p.third ? " third" : "");
+            return (
+              <article className={klass} style={{ "--rv-d": i % 3 * 70 + "ms" }} key={p.n}>
+                <div className="proj-head">
+                  <span className="proj-num">{p.n}</span>
+                  <span className={"proj-status " + p.status}>{p.status}</span>
+                </div>
+                <div className="proj-kicker">{p.kicker}</div>
+                <h3 className="proj-title">{p.title}</h3>
+                <p className="proj-text">{p.text}</p>
+                <div className="proj-stack">
+                  {p.stack.map((s) => <span className="chip" key={s}>{s}</span>)}
+                </div>
+              </article>);
+
+          })}
+        </div>
+      </div>
+    </div>);
+
+}
+
+function LifeTab() {
+  return (
+    <div className="tab-content is-entering" key="life">
+      <div className="block cream ov" data-screen-label="07 Chapters">
+        <span className="peel p-rose" style={{ top: "-16px", right: "64px", "--peel-r": "2deg" }}>est. 1997 · 广州</span>
+        <span className="block-glyph">ch.</span>
+        <div className="block-head">
+          <div>
+            <div className="block-kicker">§ life · chapters</div>
+            <h2 className="block-title">In <span className="ital">chapters</span>.</h2>
+          </div>
+          <p className="block-lede">
+            Eras, not bullet points. Where I was, what I was making, what I was failing at.
+          </p>
+        </div>
+        <div className="chapter-rows">
+          {CHAPTERS.map((c, i) =>
+          <div className={"chapter-row rv " + c.color} style={{ "--rv-d": i * 70 + "ms" }} key={i}>
+              <div className="ch-yr">{c.yr}</div>
+              <div>
+                <div className="ch-where">{c.where}</div>
+                <h3 className="ch-title">{c.title}</h3>
+                <div className="ch-tags">
+                  {c.tags.map((t) => <span className="chip" key={t}>{t}</span>)}
+                </div>
+              </div>
+              <p className="ch-text">{c.text}</p>
+              <div className="ch-photo">
+                {c.img ? <img src={c.img} alt={c.where} /> : <div className="ch-ph-empty">{c.where}</div>}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="block paper ov" style={{ marginTop: 18 }} data-screen-label="08 Loves">
+        <span className="block-glyph">&amp;</span>
+        <div className="block-head">
+          <div>
+            <div className="block-kicker">§ off-the-clock</div>
+            <h2 className="block-title">Things I <span className="ital">love</span>.</h2>
+          </div>
+          <p className="block-lede">
+            The categories that won't fit on a résumé — but probably should.
+          </p>
+        </div>
+        <div className="loves-grid">
+          {LOVES.map((l, i) =>
+          <div className={"love rv " + l.color + (l.wide ? " wide" : "")} style={{ "--rv-d": i % 3 * 70 + "ms" }} key={i}>
+              <div className="love-emoji">{l.emoji}</div>
+              <div className="love-title">{l.title}</div>
+              <div className="love-text">{l.text}</div>
+              <div className="love-foot">{l.foot}</div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>);
+
+}
+
+function PhotosTab() {
+  const [lightbox, setLightbox] = useState(null);
+  const nav = (dir) => setLightbox((i) => (i + dir + PHOTOS.length) % PHOTOS.length);
+  return (
+    <div className="tab-content is-entering" key="photos">
+      <div className="block cream ov" data-screen-label="09 Photos">
+        <span className="peel p-sage" style={{ top: "-16px", right: "52px", "--peel-r": "-2deg" }}>film · no filters</span>
+        <span className="block-glyph">ƒ</span>
+        <div className="block-head">
+          <div>
+            <div className="block-kicker">§ photography</div>
+            <h2 className="block-title">A few <span className="ital">frames</span>.</h2>
+          </div>
+          <p className="block-lede">
+            Tap ⤤ on a tile to view it big in the film strip.
+          </p>
+        </div>
+        <div className="photos">
+          {PHOTOS.map((p, i) =>
+          <div className={"ph rv t-" + p.t} style={{ "--rv-d": i % 3 * 60 + "ms" }} key={p.id}>
+              {p.img && <img src={p.img} alt={p.cap} />}
+              <button className="ph-expand" title="View larger" aria-label={"View " + p.cap}
+              onClick={() => setLightbox(i)}>⤤</button>
+              <div className="ph-cap">
+                <span>{p.cap}</span>
+                <span className="roll">R · {p.roll}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+      <PhotoLightbox photos={PHOTOS} openIdx={lightbox}
+      onClose={() => setLightbox(null)} onNav={nav} />
+    </div>);
+
+}
+
+function Foot() {
+  const [contact, setContact] = useState(null); // {user, dom} — decoded only after a human click
+  // email stored as shifted char codes — never appears as text in source,
+  // and is only decoded in response to a real click event
+  const EU = [102, 122, 109, 112, 111, 47, 109, 106, 118];
+  const ED = [104, 110, 98, 106, 109, 47, 100, 112, 110];
+  const dec = (a) => a.map((c) => String.fromCharCode(c - 1)).join("");
+  const reveal = (e) => {
+    e.preventDefault();
+    if (!e.isTrusted) return; // ignore synthetic/scripted clicks
+    if (contact) {
+      window.location.href = "mail" + "to:" + contact.user + "@" + contact.dom;
+    } else {
+      setContact({ user: dec(EU), dom: dec(ED) });
+    }
+  };
+  return (
+    <footer data-comment-anchor="4c804c36ee-footer-892-5">
+      <div>© Eylon Liu · 2026 <span style={{ opacity: 0.45, marginLeft: 10 }}>· psst: try typing my name</span></div>
+      <div className="foot-links">
+        <a href="#contact" onClick={reveal} title={contact ? "Click to open mail app" : "Click to reveal"}>
+          {contact ? <>{contact.user} <span style={{ opacity: 0.5 }}>[at]</span> {contact.dom} ↗</> : "Email →"}
+        </a>
+        <a href="https://linkedin.com/in/eylonliu/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+      </div>
+    </footer>);
+
+}
+
+// ============================ APP ============================
+
+const TWEAKS = /*EDITMODE-BEGIN*/{
+  "background": "warm",
+  "wallpaper": "dots",
+  "motion": true,
+  "flightSound": false,
+  "shapes": "playful"
+} /*EDITMODE-END*/;
+
+const BG_MAP = {
+  warm: { bg: "#F4ECDA", bg2: "#EDE2C8" },
+  cream: { bg: "#FBF5E6", bg2: "#F2EAD3" },
+  sky: { bg: "#D6DFF4", bg2: "#BED3E0" },
+  sage: { bg: "#DCE3D5", bg2: "#C5D2BA" },
+  pink: { bg: "#F5DCDA", bg2: "#E8C6C2" }
+};
+
+function App() {
+  const [tab, setTab] = useState("home");
+  const [t, setTweak] = useTweaks(TWEAKS);
+  const [toast, setToast] = useState(null);
+
+  // secret: type "eylon" anywhere → fly the whole journey
+  const flyover = React.useCallback(() => {
+    setTab("atlas");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    setToast("\u2708\uFE0E secret flyover — enjoy the ride");
+    setTimeout(() => window.dispatchEvent(new Event("lifemap-flyover")), 750);
+    setTimeout(() => setToast(null), 4000);
+  }, []);
+  useSecretCode("eylon", flyover);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const bg = BG_MAP[t.background] || BG_MAP.warm;
+    root.style.setProperty("--bg", bg.bg);
+    root.style.setProperty("--bg-2", bg.bg2);
+  }, [t.background]);
+
+  useEffect(() => {
+    const body = document.body;
+    body.classList.remove("wp-dots", "wp-grid", "wp-none");
+    body.classList.add("wp-" + (t.wallpaper || "dots"));
+  }, [t.wallpaper]);
+
+  useEffect(() => {
+    document.body.classList.toggle("no-motion", t.motion === false);
+  }, [t.motion]);
+
+  useEffect(() => {
+    window.__flightSound = t.flightSound === true;
+  }, [t.flightSound]);
+
+  useEffect(() => {
+    document.body.classList.toggle("shapes-playful", t.shapes !== "classic");
+  }, [t.shapes]);
+
+  // scroll-reveal: fade blocks up as they enter the viewport
+  useEffect(() => {
+    if (t.motion === false) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!("IntersectionObserver" in window)) return;
+    document.body.classList.add("js-reveal");
+    const els = document.querySelectorAll(".rv:not(.is-in)");
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((en) => {
+        if (en.isIntersecting) {
+          en.target.classList.add("is-in");
+          io.unobserve(en.target);
+        }
+      });
+    }, { threshold: 0.1, rootMargin: "0px 0px -40px 0px" });
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [tab, t.motion]);
+
+  return (
+    <>
+      <style>{css}</style>
+      <style>{`
+        body.wp-dots::before {
+          content: ""; position: fixed; inset: 0;
+          background-image: radial-gradient(rgba(0,0,0,0.04) 1px, transparent 1px);
+          background-size: 22px 22px; pointer-events: none; z-index: 1;
+        }
+        body.wp-grid::before {
+          content: ""; position: fixed; inset: 0;
+          background-image:
+            linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px);
+          background-size: 44px 44px; pointer-events: none; z-index: 1;
+        }
+      `}</style>
+      <div className="page">
+        <Topbar tab={tab} setTab={setTab} />
+        {tab === "home" && <HomeTab goAtlas={() => setTab("atlas")} />}
+        {tab === "atlas" && <AtlasTab />}
+        {tab === "work" && <WorkTab />}
+        {tab === "life" && <LifeTab />}
+        {tab === "photos" && <PhotosTab />}
+        <Foot />
+      </div>
+      <CursorDoodle />
+      {toast && <div className="secret-toast">{toast}</div>}
+
+      <TweaksPanel title="Tweaks">
+        <TweakSection title="Page background">
+          <TweakRadio label="" value={t.background}
+          onChange={(v) => setTweak("background", v)}
+          options={[
+          { value: "warm", label: "Warm" },
+          { value: "cream", label: "Cream" },
+          { value: "sky", label: "Sky" },
+          { value: "sage", label: "Sage" },
+          { value: "pink", label: "Pink" }]
+          } />
+        </TweakSection>
+        <TweakSection title="Wallpaper">
+          <TweakRadio label="" value={t.wallpaper}
+          onChange={(v) => setTweak("wallpaper", v)}
+          options={[
+          { value: "dots", label: "Dots" },
+          { value: "grid", label: "Grid" },
+          { value: "none", label: "None" }]
+          } />
+        </TweakSection>
+        <TweakSection title="Shapes">
+          <TweakRadio label="" value={t.shapes || "playful"}
+          onChange={(v) => setTweak("shapes", v)}
+          options={[
+          { value: "playful", label: "Playful" },
+          { value: "classic", label: "Classic" }]
+          } />
+        </TweakSection>
+        <TweakSection title="Motion">
+          <TweakToggle label="Scroll animations" value={t.motion !== false}
+          onChange={(v) => setTweak("motion", v)} />
+          <TweakToggle label="Flight sound" value={t.flightSound === true}
+          onChange={(v) => setTweak("flightSound", v)} />
+        </TweakSection>
+      </TweaksPanel>
+    </>);
+
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Xinyu (Eylon) Liu — LifeMap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F4ECDA;
+    --bg-2: #EDE2C8;
+    --paper: #FBF5E6;
+    --ink: #1A1916;
+    --ink-2: #3A3630;
+    --muted: #8A8270;
+    --rule: #D4C9B0;
+
+    /* Block palette — used as section backgrounds */
+    --c-cream:     #FBF5E6;
+    --c-butter:    #F4D58D;
+    --c-sage:      #B7C6A8;
+    --c-sky:       #BED3E0;
+    --c-rose:      #E8B7A8;
+    --c-terra:     #D97757;
+    --c-ink:       #1A1916;
+    --c-cocoa:     #6B4A2B;
+    --c-mint:      #C7DCC9;
+    --c-pink:      #F2C9CC;
+    --c-lemon:     #F0E68C;
+
+    --accent: var(--c-terra);
+    --accent-soft: oklch(0.92 0.04 35);
+    --serif: "Instrument Serif", "Noto Serif SC", Georgia, serif;
+    --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  /* paper grain */
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background-image: radial-gradient(rgba(0,0,0,0.025) 1px, transparent 1px);
+    background-size: 3px 3px;
+    pointer-events: none;
+    mix-blend-mode: multiply;
+    z-index: 1;
+  }
+  .mono { font-family: var(--mono); font-weight: 400; letter-spacing: 0.02em; }
+  .serif { font-family: var(--serif); font-weight: 400; }
+  .ital { font-style: italic; }
+  a { color: inherit; }
+  ::selection { background: var(--accent); color: var(--paper); }
+
+  /* boot splash — visible instantly, replaced when the app renders */
+  #boot { min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+          justify-content: center; gap: 18px; }
+  #boot .boot-name { font-family: Georgia, serif; font-size: clamp(34px, 5vw, 56px);
+                     letter-spacing: -0.02em; color: var(--ink); }
+  #boot .boot-name em { font-style: italic; color: var(--c-terra); }
+  #boot .boot-sub { font-family: ui-monospace, Menlo, monospace; font-size: 11px;
+                    letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted);
+                    display: inline-flex; align-items: center; gap: 10px; }
+  #boot .boot-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c-terra);
+                    animation: bootPulse 1s ease-in-out infinite; }
+  @keyframes bootPulse { 0%, 100% { opacity: 1; transform: scale(1); }
+                         50% { opacity: 0.35; transform: scale(0.7); } }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root">
+  <div id="boot">
+    <div class="boot-name">Eylon <em>Liu</em></div>
+    <div class="boot-sub"><span class="boot-dot"></span> warming up</div>
+  </div>
+</div>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="extras.jsx"></script>
+<script type="text/babel" src="map.jsx"></script>
+<script type="text/babel" src="app.jsx"></script>
+</body>
+</html>

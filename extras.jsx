@@ -1,37 +1,108 @@
-/* extras.jsx — the fun layer: cursor doodle, draggable hero stickers,
+/* extras.jsx — the fun layer: paintbrush cursor, draggable hero stickers,
    orbiting coffee badge, and a film-strip photo lightbox. */
 
 const { useState, useEffect, useRef } = React;
 
-/* ---------- 1. Cursor doodle: a little ring that chases the pointer ---------- */
-function CursorDoodle() {
+/* ---------- 1. Cursor doodle → paintbrush: the ring carries a paint color,
+   clicks drop an organic splat, and dragging leaves a trail ---------- */
+const PAINT_PALETTE = [
+  "#D97757", // terra
+  "#F4D58D", // butter
+  "#B7C6A8", // sage
+  "#BED3E0", // sky
+  "#E8B7A8", // rose
+  "#C7DCC9", // mint
+  "#F2C9CC", // pink
+  "#6B4A2B", // cocoa
+  "#F0E68C", // lemon
+];
+
+function CursorDoodle({ paint = true }) {
   const ref = useRef(null);
+  const layerRef = useRef(null);
   useEffect(() => {
     if (window.matchMedia("(pointer: coarse)").matches) return;
     const el = ref.current;
+    const layer = layerRef.current;
     if (!el) return;
+
     let x = -100, y = -100, tx = -100, ty = -100, raf;
+    let ci = Math.floor(Math.random() * PAINT_PALETTE.length);
+    let down = false, lastSplat = 0;
+
+    const motionOK = () =>
+      !document.body.classList.contains("no-motion") &&
+      !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const blob = () => {
+      const r = () => 38 + Math.random() * 42;
+      return `${r()}% ${r()}% ${r()}% ${r()}% / ${r()}% ${r()}% ${r()}% ${r()}%`;
+    };
+
+    const splat = (px, py, small) => {
+      if (!layer) return;
+      const color = PAINT_PALETTE[ci % PAINT_PALETTE.length];
+      const d = document.createElement("div");
+      d.className = "paint-splat";
+      const size = small ? (14 + Math.random() * 16) : (32 + Math.random() * 30);
+      d.style.cssText =
+        `left:${px}px;top:${py}px;width:${size}px;height:${size}px;` +
+        `background:${color};border-radius:${blob()};` +
+        `--rot:${(Math.random() * 70 - 35)}deg;`;
+      layer.appendChild(d);
+      setTimeout(() => d.remove(), 2700);
+    };
+
+    const setBrush = () =>
+      el.style.setProperty("--brush", PAINT_PALETTE[ci % PAINT_PALETTE.length]);
+
     const move = (e) => {
       tx = e.clientX; ty = e.clientY;
       const t = e.target;
       const hot = !!(t && t.closest &&
         t.closest("a, button, .tab-btn, .strip-btn, .ph, .proj, .love, .meta-card, .stk"));
       el.classList.toggle("is-hot", hot);
+      if (paint && down && motionOK()) {
+        const now = performance.now();
+        if (now - lastSplat > 50) { splat(e.clientX, e.clientY, true); lastSplat = now; }
+      }
     };
+    const pdown = (e) => {
+      down = true;
+      if (paint && motionOK()) {
+        splat(e.clientX, e.clientY, false);
+        ci = (ci + 1) % PAINT_PALETTE.length; // advance to next color
+        setBrush();
+      }
+    };
+    const pup = () => { down = false; };
+
     const loop = () => {
       x += (tx - x) * 0.2;
       y += (ty - y) * 0.2;
       el.style.transform = `translate(${x}px, ${y}px)`;
       raf = requestAnimationFrame(loop);
     };
+
+    el.classList.toggle("is-brush", paint);
+    setBrush();
     window.addEventListener("pointermove", move, { passive: true });
+    window.addEventListener("pointerdown", pdown, { passive: true });
+    window.addEventListener("pointerup", pup, { passive: true });
     raf = requestAnimationFrame(loop);
     return () => {
       window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerdown", pdown);
+      window.removeEventListener("pointerup", pup);
       cancelAnimationFrame(raf);
     };
-  }, []);
-  return <div ref={ref} className="cursor-doodle" aria-hidden="true"></div>;
+  }, [paint]);
+  return (
+    <React.Fragment>
+      <div ref={layerRef} className="paint-layer" aria-hidden="true"></div>
+      <div ref={ref} className="cursor-doodle" aria-hidden="true"></div>
+    </React.Fragment>
+  );
 }
 
 /* ---------- 2. Draggable hero stickers ---------- */

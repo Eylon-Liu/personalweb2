@@ -291,11 +291,13 @@ function LifeMap({ compact = false, autoplay = false }) {
         initedRef.current = true;
         setInited(true);
         from = 0;
+        drawnRef.current = 0;
         setLandedSegs(0);
       } else if (lastKeyRef.current !== animKey) {
         // replay: wipe the whole journey and redraw from the start
         segments.forEach((s) => setSeg(s.idx, false, false));
         from = 0;
+        drawnRef.current = 0;
         setLandedSegs(0);
       }
       lastKeyRef.current = animKey;
@@ -402,7 +404,7 @@ function LifeMap({ compact = false, autoplay = false }) {
             <circle r="15" fill="var(--c-terra)" opacity="0.2" filter="url(#softGlow)" />
             <text textAnchor="middle" dominantBaseline="central" fontSize="24"
                   fill="var(--c-terra)" stroke="var(--paper)" strokeWidth="0.8"
-                  style={{ pointerEvents: "none" }}>{"\u2708\uFE0E"}</text>
+                  style={{ pointerEvents: "none" }}>{"✈︎"}</text>
           </g>
         )}
 
@@ -536,7 +538,7 @@ window.PLACES = PLACES;
 /* ---------- Passport stamps: one per lived city, thunks in as the plane lands ---------- */
 const STAMP_DEFS = [
   // seg = journey leg after which this city is "landed" (0 = origin, always stamped)
-  { id: "guangzhou", seg: 0, name: "GUANGZHOU", sub: "CAN · 1997", glyph: "广", shape: "round", inkCls: "si-red",  r: -8 },
+  { id: "guangzhou", seg: 0, name: "GUANGZHOU", sub: "CAN · 1997", glyph: "广州", shape: "round", inkCls: "si-red",  r: -8 },
   { id: "nashville", seg: 1, name: "NASHVILLE", sub: "BNA · 2015", glyph: "★", shape: "rect",  inkCls: "si-blue", r: 5 },
   { id: "vienna",    seg: 2, name: "WIEN",      sub: "VIE · 2017", glyph: "♪", shape: "oval",  inkCls: "si-ink",  r: -4 },
   { id: "brooklyn",  seg: 4, name: "BROOKLYN",  sub: "NYU · 2018", glyph: "⚒", shape: "round", inkCls: "si-blue", r: 7 },

@@ -660,40 +660,111 @@ Object.assign(window, {
 
 </script>
 <script type="text/babel">
-/* extras.jsx — the fun layer: cursor doodle, draggable hero stickers,
+/* extras.jsx — the fun layer: paintbrush cursor, draggable hero stickers,
    orbiting coffee badge, and a film-strip photo lightbox. */
 
 const { useState, useEffect, useRef } = React;
 
-/* ---------- 1. Cursor doodle: a little ring that chases the pointer ---------- */
-function CursorDoodle() {
+/* ---------- 1. Cursor doodle → paintbrush: the ring carries a paint color,
+   clicks drop an organic splat, and dragging leaves a trail ---------- */
+const PAINT_PALETTE = [
+  "#D97757", // terra
+  "#F4D58D", // butter
+  "#B7C6A8", // sage
+  "#BED3E0", // sky
+  "#E8B7A8", // rose
+  "#C7DCC9", // mint
+  "#F2C9CC", // pink
+  "#6B4A2B", // cocoa
+  "#F0E68C", // lemon
+];
+
+function CursorDoodle({ paint = true }) {
   const ref = useRef(null);
+  const layerRef = useRef(null);
   useEffect(() => {
     if (window.matchMedia("(pointer: coarse)").matches) return;
     const el = ref.current;
+    const layer = layerRef.current;
     if (!el) return;
+
     let x = -100, y = -100, tx = -100, ty = -100, raf;
+    let ci = Math.floor(Math.random() * PAINT_PALETTE.length);
+    let down = false, lastSplat = 0;
+
+    const motionOK = () =>
+      !document.body.classList.contains("no-motion") &&
+      !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const blob = () => {
+      const r = () => 38 + Math.random() * 42;
+      return `${r()}% ${r()}% ${r()}% ${r()}% / ${r()}% ${r()}% ${r()}% ${r()}%`;
+    };
+
+    const splat = (px, py, small) => {
+      if (!layer) return;
+      const color = PAINT_PALETTE[ci % PAINT_PALETTE.length];
+      const d = document.createElement("div");
+      d.className = "paint-splat";
+      const size = small ? (14 + Math.random() * 16) : (32 + Math.random() * 30);
+      d.style.cssText =
+        `left:${px}px;top:${py}px;width:${size}px;height:${size}px;` +
+        `background:${color};border-radius:${blob()};` +
+        `--rot:${(Math.random() * 70 - 35)}deg;`;
+      layer.appendChild(d);
+      setTimeout(() => d.remove(), 2700);
+    };
+
+    const setBrush = () =>
+      el.style.setProperty("--brush", PAINT_PALETTE[ci % PAINT_PALETTE.length]);
+
     const move = (e) => {
       tx = e.clientX; ty = e.clientY;
       const t = e.target;
       const hot = !!(t && t.closest &&
         t.closest("a, button, .tab-btn, .strip-btn, .ph, .proj, .love, .meta-card, .stk"));
       el.classList.toggle("is-hot", hot);
+      if (paint && down && motionOK()) {
+        const now = performance.now();
+        if (now - lastSplat > 50) { splat(e.clientX, e.clientY, true); lastSplat = now; }
+      }
     };
+    const pdown = (e) => {
+      down = true;
+      if (paint && motionOK()) {
+        splat(e.clientX, e.clientY, false);
+        ci = (ci + 1) % PAINT_PALETTE.length; // advance to next color
+        setBrush();
+      }
+    };
+    const pup = () => { down = false; };
+
     const loop = () => {
       x += (tx - x) * 0.2;
       y += (ty - y) * 0.2;
       el.style.transform = `translate(${x}px, ${y}px)`;
       raf = requestAnimationFrame(loop);
     };
+
+    el.classList.toggle("is-brush", paint);
+    setBrush();
     window.addEventListener("pointermove", move, { passive: true });
+    window.addEventListener("pointerdown", pdown, { passive: true });
+    window.addEventListener("pointerup", pup, { passive: true });
     raf = requestAnimationFrame(loop);
     return () => {
       window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerdown", pdown);
+      window.removeEventListener("pointerup", pup);
       cancelAnimationFrame(raf);
     };
-  }, []);
-  return <div ref={ref} className="cursor-doodle" aria-hidden="true"></div>;
+  }, [paint]);
+  return (
+    <React.Fragment>
+      <div ref={layerRef} className="paint-layer" aria-hidden="true"></div>
+      <div ref={ref} className="cursor-doodle" aria-hidden="true"></div>
+    </React.Fragment>
+  );
 }
 
 /* ---------- 2. Draggable hero stickers ---------- */
@@ -1177,11 +1248,13 @@ function LifeMap({ compact = false, autoplay = false }) {
         initedRef.current = true;
         setInited(true);
         from = 0;
+        drawnRef.current = 0;
         setLandedSegs(0);
       } else if (lastKeyRef.current !== animKey) {
         // replay: wipe the whole journey and redraw from the start
         segments.forEach((s) => setSeg(s.idx, false, false));
         from = 0;
+        drawnRef.current = 0;
         setLandedSegs(0);
       }
       lastKeyRef.current = animKey;
@@ -1288,7 +1361,7 @@ function LifeMap({ compact = false, autoplay = false }) {
             <circle r="15" fill="var(--c-terra)" opacity="0.2" filter="url(#softGlow)" />
             <text textAnchor="middle" dominantBaseline="central" fontSize="24"
                   fill="var(--c-terra)" stroke="var(--paper)" strokeWidth="0.8"
-                  style={{ pointerEvents: "none" }}>{"\u2708\uFE0E"}</text>
+                  style={{ pointerEvents: "none" }}>{"✈︎"}</text>
           </g>
         )}
 
@@ -1422,7 +1495,7 @@ window.PLACES = PLACES;
 /* ---------- Passport stamps: one per lived city, thunks in as the plane lands ---------- */
 const STAMP_DEFS = [
   // seg = journey leg after which this city is "landed" (0 = origin, always stamped)
-  { id: "guangzhou", seg: 0, name: "GUANGZHOU", sub: "CAN · 1997", glyph: "广", shape: "round", inkCls: "si-red",  r: -8 },
+  { id: "guangzhou", seg: 0, name: "GUANGZHOU", sub: "CAN · 1997", glyph: "广州", shape: "round", inkCls: "si-red",  r: -8 },
   { id: "nashville", seg: 1, name: "NASHVILLE", sub: "BNA · 2015", glyph: "★", shape: "rect",  inkCls: "si-blue", r: 5 },
   { id: "vienna",    seg: 2, name: "WIEN",      sub: "VIE · 2017", glyph: "♪", shape: "oval",  inkCls: "si-ink",  r: -4 },
   { id: "brooklyn",  seg: 4, name: "BROOKLYN",  sub: "NYU · 2018", glyph: "⚒", shape: "round", inkCls: "si-blue", r: 7 },
@@ -1603,8 +1676,33 @@ const css = `
                    transition: width 0.2s, height 0.2s, margin 0.2s, background 0.2s, opacity 0.2s; }
   .cursor-doodle.is-hot { width: 38px; height: 38px; margin: -19px 0 0 -19px;
                           background: oklch(0.62 0.12 35 / 0.14); }
-  @media (pointer: coarse) { .cursor-doodle { display: none; } }
+  /* paintbrush mode — ring fills with the active paint color, teardrop tip */
+  .cursor-doodle.is-brush { width: 16px; height: 16px; margin: -8px 0 0 -8px;
+                            border-color: rgba(26,25,22,0.32);
+                            background: var(--brush, var(--c-terra));
+                            border-radius: 62% 62% 62% 0;
+                            box-shadow: 0 0 0 2px rgba(251,245,230,0.92),
+                                        0 2px 6px rgba(26,25,22,0.28); }
+  .cursor-doodle.is-brush.is-hot { width: 30px; height: 30px; margin: -15px 0 0 -15px;
+                                   background: var(--brush, var(--c-terra)); }
+  body.brush-on { cursor: none; }
+  body.brush-on a, body.brush-on button, body.brush-on .strip-btn,
+  body.brush-on .stk { cursor: none; }
+
+  /* paint splats dropped on click / drag — purely decorative overlay */
+  .paint-layer { position: fixed; inset: 0; pointer-events: none; z-index: 9990; overflow: hidden; }
+  .paint-splat { position: fixed; transform: translate(-50%, -50%) rotate(var(--rot, 0deg)) scale(0);
+                 mix-blend-mode: multiply; opacity: 0; will-change: transform, opacity;
+                 animation: splatPop 2.7s cubic-bezier(.2,1.4,.35,1) forwards; }
+  @keyframes splatPop {
+    0%   { transform: translate(-50%,-50%) rotate(var(--rot)) scale(0);    opacity: 0; }
+    16%  { transform: translate(-50%,-50%) rotate(var(--rot)) scale(1.12); opacity: 0.95; }
+    34%  { transform: translate(-50%,-50%) rotate(var(--rot)) scale(0.94); opacity: 0.9; }
+    100% { transform: translate(-50%,-50%) rotate(var(--rot)) scale(1.02); opacity: 0; }
+  }
+  @media (pointer: coarse) { .cursor-doodle, .paint-layer { display: none; } }
   body.no-motion .cursor-doodle { display: none; }
+  body.no-motion .paint-layer { display: none; }
 
   /* ============ HERO STICKERS ============ */
   .stk { position: absolute; z-index: 6; cursor: grab; user-select: none;
@@ -1669,20 +1767,21 @@ const css = `
     100% { transform: rotate(var(--stamp-r)) scale(1); opacity: 0.82; }
   }
   body.no-motion .stamp.is-landed { animation: none; }
-  .stamp-glyph { font-family: var(--serif); font-size: 17px; line-height: 1.1; }
+  .stamp-glyph { font-family: var(--serif); font-size: 17px; line-height: 1.1; white-space: nowrap; }
   .stamp-name { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; }
   .stamp-sub { font-family: var(--mono); font-size: 8px; letter-spacing: 0.14em; opacity: 0.75; }
 
   .love.wide { grid-column: span 6; min-height: 150px; }
-  @media (max-width: 880px) { .love.wide { grid-column: span 2; } }
+  .love.half { grid-column: span 3; }
+  @media (max-width: 880px) { .love.wide, .love.half { grid-column: span 2; } }
 
   /* ============ PLAYFUL SHAPES (tweakable) ============ */
   body.shapes-playful .block.hero { border-radius: 56px 140px 56px 140px; }
   body.shapes-playful .stats { border-radius: 999px; }
   body.shapes-playful .stat:first-child { padding-left: 44px; }
   body.shapes-playful .stat:last-child { padding-right: 44px; }
-  body.shapes-playful .block.sage { border-radius: 130px 130px 26px 26px; }
-  body.shapes-playful .block.butter.chapter-teaser { border-radius: 26px 26px 130px 26px; }
+  body.shapes-playful .block.sage.now-block { border-radius: 26px 120px 120px 26px; }
+  body.shapes-playful .block.butter.chapter-teaser { border-radius: 120px 26px 26px 120px; }
   body.shapes-playful .block.rose { border-radius: 90px 26px 90px 26px; }
   body.shapes-playful .proj { transition: transform 0.3s, box-shadow 0.3s; }
   body.shapes-playful .proj:nth-child(3n+1) { border-radius: 70px 18px 18px 18px; transform: rotate(-0.5deg); }
@@ -1784,9 +1883,10 @@ const css = `
   .chapter-teaser { display: flex; flex-direction: column; gap: 14px; height: 100%; }
   .chapter-teaser .yr { font-family: var(--mono); font-size: 12px; letter-spacing: 0.16em;
                         text-transform: uppercase; opacity: 0.78; }
-  .chapter-teaser h3 { font-family: var(--serif); font-size: clamp(34px, 3.6vw, 46px); line-height: 1.04;
+  .chapter-teaser h3 { font-family: var(--serif); font-size: clamp(40px, 4.6vw, 60px); line-height: 1.02;
                        margin: 0; font-weight: 400; text-wrap: balance; }
-  .chapter-teaser .body { font-size: 16px; line-height: 1.6; flex: 1; text-wrap: pretty; }
+  .chapter-teaser .body { font-family: var(--serif); font-size: clamp(18px, 2vw, 24px); line-height: 1.45;
+                          flex: 1; opacity: 0.88; text-wrap: pretty; }
   .chapter-teaser .foot { display: flex; gap: 10px; font-family: var(--mono); font-size: 11px;
                           letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.78; }
 
@@ -1912,13 +2012,13 @@ const css = `
   .meta-card { background: var(--c-cream); border: 1px solid var(--ink);
                border-radius: 14px; padding: 16px; min-height: 110px;
                box-shadow: 0 4px 0 -2px var(--ink); display: flex; flex-direction: column;
-               justify-content: space-between; }
+               justify-content: space-between; align-items: center; text-align: center; }
   .meta-card .k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
                   text-transform: uppercase; opacity: 0.7; }
   .meta-card .v { font-family: var(--serif); font-size: 32px; line-height: 1; }
 
   /* ============ WORK TAB ============ */
-  .work-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; }
+  .work-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; }
   @media (max-width: 880px) { .work-grid { grid-template-columns: 1fr; } }
   .proj { grid-column: span 3; padding: 26px; border-radius: 18px;
           border: 1px solid var(--ink); box-shadow: 0 6px 0 -2px var(--ink);
@@ -1943,6 +2043,7 @@ const css = `
                  text-transform: uppercase; padding: 3px 9px; border-radius: 999px;
                  border: 1px solid var(--ink); background: var(--c-cream); color: var(--ink); }
   .proj-status.shipped { background: var(--ink); color: var(--c-cream); }
+  .proj-status.production { background: var(--c-terra); color: var(--c-cream); border-color: var(--c-terra); }
   .proj-status.wip { background: var(--c-terra); color: var(--c-cream); border-color: var(--c-terra); }
   .proj-kicker { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em;
                  text-transform: uppercase; opacity: 0.7; }
@@ -1969,7 +2070,7 @@ const css = `
   .chapter-row.c-sky { background: var(--c-sky); }
   .chapter-row.c-rose { background: var(--c-rose); }
   .chapter-row.c-mint { background: var(--c-mint); }
-  @media (max-width: 760px) { .chapter-row { grid-template-columns: 1fr; gap: 8px; } }
+  @media (max-width: 900px) { .chapter-row { grid-template-columns: 1fr; gap: 8px; } }
   .ch-yr { font-family: var(--mono); font-size: 13px; opacity: 0.7; padding-top: 4px; }
   .ch-where { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em;
               text-transform: uppercase; color: var(--c-terra); margin-bottom: 6px; }
@@ -1988,10 +2089,10 @@ const css = `
     justify-content: center; text-align: center; padding: 8px;
     font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
     text-transform: uppercase; color: var(--muted); }
-  @media (max-width: 760px) { .ch-photo { justify-self: start; } }
+  @media (max-width: 900px) { .ch-photo { justify-self: start; } }
 
   /* loves */
-  .loves-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-top: 18px; }
+  .loves-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; margin-top: 18px; }
   @media (max-width: 880px) { .loves-grid { grid-template-columns: 1fr 1fr; } }
   .love { padding: 22px; border-radius: 18px; border: 1px solid var(--ink);
           box-shadow: 0 5px 0 -2px var(--ink); grid-column: span 2;
@@ -1999,9 +2100,7 @@ const css = `
           display: flex; flex-direction: column; gap: 10px; min-height: 200px;
           transition: transform 0.2s; }
   .love:hover { transform: rotate(-1deg) scale(1.02); }
-  .love:nth-child(1) { grid-column: span 3; }
-  .love:nth-child(4) { grid-column: span 3; }
-  @media (max-width: 880px) { .love, .love:nth-child(1), .love:nth-child(4) { grid-column: span 1; } }
+  @media (max-width: 880px) { .love { grid-column: span 2; } }
   .love.c-cream { background: var(--c-cream); }
   .love.c-butter { background: var(--c-butter); }
   .love.c-sage { background: var(--c-sage); }
@@ -2023,9 +2122,6 @@ const css = `
         position: relative; overflow: hidden; transition: transform 0.25s; }
   .ph:hover { transform: scale(1.02); }
   .ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .ph .ph-empty { position: absolute; inset: 0; display: flex; align-items: center;
-    justify-content: center; font-family: var(--mono); font-size: 11px;
-    letter-spacing: 0.14em; text-transform: uppercase; color: rgba(26,25,22,0.45); }
   .ph-cap { position: absolute; left: 10px; bottom: 10px;
             font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em;
             text-transform: uppercase; color: var(--ink); display: inline-flex; gap: 8px;
@@ -2087,21 +2183,30 @@ const css = `
     .lb-prev { left: 22vw; }
     .lb-next { right: 22vw; }
   }
-  .ph.t-1 { grid-column: span 5; grid-row: span 3; background: var(--c-sky); }
-  .ph.t-2 { grid-column: span 4; grid-row: span 2; background: var(--c-butter); }
-  .ph.t-3 { grid-column: span 3; grid-row: span 2; background: var(--c-rose); }
-  .ph.t-4 { grid-column: span 4; grid-row: span 2; background: var(--c-sage); }
-  .ph.t-5 { grid-column: span 3; grid-row: span 2; background: var(--c-mint); }
-  .ph.t-6 { grid-column: span 5; grid-row: span 2; background: var(--c-pink); }
-  .ph.t-7 { grid-column: span 4; grid-row: span 2; background: var(--c-cream); }
-  .ph.t-8 { grid-column: span 8; grid-row: span 3; background: var(--c-butter); }
-  .ph.t-9 { grid-column: span 4; grid-row: span 3; background: var(--c-rose); }
+  .ph.t-1  { grid-column: span 7; grid-row: span 3; background: var(--c-sky); }
+  .ph.t-2  { grid-column: span 5; grid-row: span 3; background: var(--c-butter); }
+  .ph.t-3  { grid-column: span 4; grid-row: span 2; background: var(--c-rose); }
+  .ph.t-4  { grid-column: span 4; grid-row: span 2; background: var(--c-sage); }
+  .ph.t-5  { grid-column: span 4; grid-row: span 2; background: var(--c-mint); }
+  .ph.t-6  { grid-column: span 5; grid-row: span 3; background: var(--c-pink); }
+  .ph.t-7  { grid-column: span 7; grid-row: span 3; background: var(--c-butter); }
+  .ph.t-8  { grid-column: span 4; grid-row: span 2; background: var(--c-sky); }
+  .ph.t-9  { grid-column: span 4; grid-row: span 2; background: var(--c-rose); }
+  .ph.t-10 { grid-column: span 4; grid-row: span 2; background: var(--c-sage); }
+  .ph.t-11 { grid-column: span 6; grid-row: span 3; background: var(--c-mint); }
+  .ph.t-12 { grid-column: span 6; grid-row: span 3; background: var(--c-butter); }
+  .ph.t-13 { grid-column: span 6; grid-row: span 3; background: var(--c-sky); }
+  .ph.t-14 { grid-column: span 6; grid-row: span 3; background: var(--c-rose); }
   @media (max-width: 760px) {
     .photos { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 140px; }
     .ph { grid-column: span 1 !important; grid-row: span 2 !important; }
   }
 
   /* ============ FOOTER ============ */
+  .foot-left { display: flex; align-items: center; gap: 14px; }
+  .foot-mascot { width: 52px; height: auto; flex-shrink: 0;
+                 transition: transform 0.3s cubic-bezier(.2,1.4,.4,1); }
+  .foot-mascot:hover { transform: rotate(-6deg) scale(1.12); }
   footer { margin-top: 36px; padding: 28px; background: var(--c-cream);
            border: 1px solid var(--ink); border-radius: 24px;
            box-shadow: 0 6px 0 -2px var(--ink); display: flex; justify-content: space-between;
@@ -2120,6 +2225,115 @@ const css = `
   /* utility */
   .ink2 { color: var(--ink-2); }
   .muted { color: var(--muted); }
+
+  /* ============ EDITORIAL POLISH ============ */
+  ::selection { background: var(--c-terra); color: var(--c-cream); }
+  a { color: var(--c-terra); }
+  a:hover { color: var(--ink); }
+  /* paper grain over everything, very faint */
+  body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 9997;
+                opacity: 0.05; mix-blend-mode: multiply;
+                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  /* hand-drawn wavy underline on italic accent words */
+  .block-title .ital, .hero-name .ital {
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='8' viewBox='0 0 28 8'%3E%3Cpath d='M0 5 Q 7 0.5 14 5 T 28 5' fill='none' stroke='%23D97757' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E") repeat-x left bottom;
+    background-size: 0.52em 0.15em; padding-bottom: 0.14em; }
+  .block.terra .block-title .ital, .block.ink .block-title .ital { background: none; padding-bottom: 0; }
+  .nav-time { color: var(--c-terra); font-variant-numeric: tabular-nums; }
+  .tab-btn:active { transform: scale(0.93); }
+  .marquee:hover .marquee-inner { animation-play-state: paused; }
+  .love .love-emoji { transition: transform 0.3s cubic-bezier(.2,1.4,.4,1); }
+  .love:hover .love-emoji { transform: rotate(-8deg) scale(1.12); opacity: 1; }
+  .proj .proj-num { transition: color 0.2s, opacity 0.2s; }
+  .proj:hover .proj-num { color: var(--c-terra); opacity: 1; }
+  .chip { transition: background 0.2s, color 0.2s; }
+  .proj:hover .chip:first-child, .chapter-row:hover .chip:first-child { background: var(--ink); color: var(--c-cream); }
+  .stat:hover .stat-num .ital, .stat:hover .stat-num { color: var(--c-butter); transition: color 0.3s; }
+
+  /* ============ TABLET / MOBILE FIXES ============ */
+  @media (max-width: 1020px) { .avatar-wrap { width: 300px; height: 300px; } }
+
+  /* ============ ENVELOPE INTRO ============ */
+  .env-overlay { position: fixed; inset: 0; z-index: 10000; cursor: pointer;
+                 display: flex; flex-direction: column; align-items: center; justify-content: center;
+                 gap: 28px; transition: opacity 0.45s ease;
+                 background: radial-gradient(rgba(0,0,0,0.04) 1px, transparent 1px) 0 0 / 22px 22px, var(--bg); }
+  .env-overlay.away { opacity: 0; pointer-events: none; }
+  .envelope { position: relative; width: min(560px, 88vw); height: min(340px, 54vw);
+              perspective: 1000px; animation: envIn 0.65s cubic-bezier(.2,1.2,.4,1) both; }
+  @keyframes envIn { from { transform: translateY(-36px) rotate(-4deg); opacity: 0; } }
+  .env-back { position: absolute; inset: 0; z-index: 1; background: var(--c-butter);
+              border: 1.6px solid var(--ink); border-radius: 16px;
+              box-shadow: 0 12px 0 -5px var(--ink); }
+  .env-letter { position: absolute; left: 5%; right: 5%; top: 5%; height: 90%; z-index: 3;
+                background: var(--c-cream); border: 1.4px solid var(--ink); border-radius: 10px;
+                display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+                padding-top: 7%; gap: 8px; font-family: var(--mono); font-size: 11px;
+                letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-2);
+                transition: transform 1.15s cubic-bezier(.22,1,.36,1) 0.55s; }
+  .env-logo { width: clamp(96px, 20vw, 132px); height: auto; margin-bottom: 4px;
+              filter: drop-shadow(0 4px 8px rgba(26,25,22,0.16)); }
+  .env-letter .env-name { font-family: var(--serif); font-size: clamp(26px, 5vw, 38px);
+                          text-transform: none; letter-spacing: -0.01em; color: var(--ink); }
+  .env-letter .env-name .ital { font-style: italic; color: var(--c-terra); }
+  .open .env-letter { transform: translateY(-66%); }
+  .env-front { position: absolute; inset: 0; z-index: 4; background: var(--c-cream);
+               border-radius: 16px; border: 1.6px solid var(--ink);
+               clip-path: polygon(0 8%, 50% 54%, 100% 8%, 100% 100%, 0 100%); }
+  .env-front::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 13px;
+                      border-top: 1.4px solid var(--ink);
+                      background: repeating-linear-gradient(-45deg, var(--c-terra) 0 12px,
+                        var(--c-cream) 12px 24px, #7A9CC6 24px 36px, var(--c-cream) 36px 48px); }
+  .env-addr { position: absolute; left: 8%; bottom: 13%; font-family: var(--mono); font-size: 11px;
+              letter-spacing: 0.16em; text-transform: uppercase; line-height: 2.1; color: var(--ink-2);
+              text-align: left; }
+  .env-addr b { color: var(--ink); font-weight: 400; border-bottom: 1px solid rgba(26,25,22,0.35); }
+  @media (max-width: 520px) { .env-addr { font-size: 9px; } }
+  .env-mark { position: absolute; right: 8%; bottom: 30%; width: 66px; height: 66px;
+              border: 1.6px dashed var(--ink); border-radius: 50%; opacity: 0.5;
+              display: flex; align-items: center; justify-content: center; text-align: center;
+              font-family: var(--mono); font-size: 8px; letter-spacing: 0.12em; line-height: 1.5;
+              transform: rotate(12deg); }
+  @media (max-width: 520px) { .env-mark { width: 52px; height: 52px; } }
+  .env-flap { position: absolute; left: 0; right: 0; top: 0; height: 55%; z-index: 5;
+              transform-origin: top center;
+              transition: transform 0.9s cubic-bezier(.55,0,.3,1), z-index 0s 0.45s; }
+  .env-flap svg { width: 100%; height: 100%; display: block; }
+  .open .env-flap { transform: rotateX(178deg); z-index: 2; }
+  .env-seal { position: absolute; left: 50%; top: 51%; z-index: 6; width: 82px; height: 82px;
+              margin: -41px 0 0 -41px; border-radius: 50%; background: var(--c-terra);
+              color: var(--c-cream); border: 2px solid var(--ink);
+              box-shadow: 0 4px 0 -1px var(--ink);
+              display: flex; flex-direction: column; align-items: center; justify-content: center;
+              font-family: var(--serif); font-style: italic; font-size: 24px; line-height: 1;
+              transform: rotate(-6deg); transition: transform 0.5s, opacity 0.5s; }
+  .env-seal small { font-family: var(--mono); font-style: normal; font-size: 7px;
+                    letter-spacing: 0.18em; margin-top: 4px; opacity: 0.8; }
+  .envelope:hover .env-seal { transform: rotate(-2deg) scale(1.06); }
+  .open .env-seal { transform: scale(0) rotate(40deg); opacity: 0; }
+  .env-hint { font-family: var(--mono); font-size: 12px; letter-spacing: 0.22em;
+              text-transform: uppercase; color: var(--ink-2);
+              animation: hintBob 1.8s ease-in-out infinite; }
+  @keyframes hintBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+  .open .env-hint, .away .env-hint { opacity: 0; transition: opacity 0.3s; }
+
+  /* cards assemble after the envelope opens */
+  @keyframes cardAsm { from { opacity: 0;
+    transform: translate(var(--asm-x, 0), 70px) rotate(var(--asm-r, -3deg)) scale(0.9); } }
+  body.cards-in .topbar { animation: cardAsm 0.6s cubic-bezier(.22,1,.36,1) both; }
+  body.cards-in .tab-content > *, body.cards-in footer,
+  body.cards-in .home-row2 > * { animation: cardAsm 0.65s cubic-bezier(.22,1,.36,1) both; }
+  body.cards-in .tab-content > .home-row2 { animation: none; }
+  body.cards-in .tab-content > :nth-child(1) { animation-delay: 0.05s; --asm-x: -60px; --asm-r: -5deg; }
+  body.cards-in .tab-content > :nth-child(3) { animation-delay: 0.16s; --asm-x: 60px; --asm-r: 4deg; }
+  body.cards-in .tab-content > :nth-child(4) { animation-delay: 0.26s; --asm-x: -40px; --asm-r: -3deg; }
+  body.cards-in .home-row2 > :nth-child(1) { animation-delay: 0.36s; --asm-x: -50px; --asm-r: 3deg; }
+  body.cards-in .home-row2 > :nth-child(2) { animation-delay: 0.44s; --asm-x: 50px; --asm-r: -4deg; }
+  body.cards-in .tab-content > :nth-child(6) { animation-delay: 0.52s; --asm-x: 40px; --asm-r: 2deg; }
+  body.cards-in .tab-content > :nth-child(8) { animation-delay: 0.6s; --asm-x: -30px; --asm-r: -2deg; }
+  body.cards-in footer { animation-delay: 0.68s; }
+  body.no-motion .tab-content > *, body.no-motion .topbar, body.no-motion footer,
+  body.no-motion .home-row2 > * { animation: none !important; }
 `;
 
 // ============================ DATA ============================
@@ -2135,7 +2349,7 @@ const STATS = [
 { num: "5", label: "Cities lived" },
 { num: "4", label: "Languages spoken" },
 { num: "20+", label: "Countries visited" },
-{ num: "5", label: "Years on Wall St." }];
+{ num: "5", label: "Yrs in finance" }];
 
 
 const CHAPTERS = [
@@ -2151,65 +2365,72 @@ const CHAPTERS = [
 { yr: "Chapter 04", where: "Brooklyn · NYU Tandon", title: "Math, with money attached.",
   text: "MS Financial Engineering. Genetic algorithms in C++; LSTMs trying to predict Apple. A global pandemic interrupting most of it.",
   tags: ["C++", "ML", "Portfolio theory", "UN"], color: "c-sky" },
-{ yr: "Now", where: "Jersey City · Wall St.", title: "Building the systems behind the decisions.",
-  text: "Almost five years as a quantitative strategist across the Hudson. Client segmentation, deposit-retention models, a multi-billion PnL redesign. I like when a number actually changes a decision.",
-  tags: ["Quant", "Segmentation", "Retention"], color: "c-mint" }];
+{ yr: "Now", where: "New York · Bloomberg", title: "Building quant tools traders actually use.",
+  text: "Quant developer on Bloomberg's BQuant platform after four years across Goldman Sachs, Barclays and the UN. I turn trading workflows — fixed income, FX, equities — into Python analytics people ship. After hours I vibe-code personal projects like this one.",
+  tags: ["Python", "BQuant", "Vibe-coding"], color: "c-mint" }];
 
 
 const PROJECTS = [
-{ n: "01", feat: true, color: "c-butter", status: "shipped",
-  kicker: "Wall St. · year one", title: "Loan-level PnL system",
-  text: "End-to-end redesign of the PnL pipeline for a multi-billion portfolio. Real-time dashboards, full data-pipeline rewrite. Cut manual review by 30%.",
-  stack: ["SLANG", "SQL", "TypeScript", "Real-time"] },
-{ n: "02", color: "c-sage", status: "shipped",
-  kicker: "Wall St. · year two", title: "Client segmentation",
-  text: "K-means cohorts of wealth-management clients. Powered targeted outreach; double-digit lift in cross-sell.",
-  stack: ["Python", "Scikit-learn", "PowerBI"] },
-{ n: "03", color: "c-sky", status: "shipped",
-  kicker: "Wall St. · year two", title: "Deposit retention model",
-  text: "GBM + regression to predict attrition and surface behavioral drivers. Material contribution to annual funding value.",
-  stack: ["Python", "GBM", "Time series"] },
-{ n: "04", third: true, color: "c-rose", status: "research",
-  kicker: "Grad school · research", title: "GA Portfolio",
-  text: "C++ genetic algorithm with custom fitness. Beat the market in backtests.",
-  stack: ["C++", "libcurl", "SQLite"] },
-{ n: "05", third: true, color: "c-mint", status: "research",
-  kicker: "Grad school · research", title: "Bankruptcy & AAPL",
-  text: "Classical ML for bankruptcy prediction; GRU/LSTM for daily-return modeling on AAPL. Strong in-sample performance.",
-  stack: ["Keras", "LSTM", "SVM", "RF"] },
-{ n: "06", third: true, color: "c-pink", status: "published",
-  kicker: "UN · summer intern", title: "JPO retention analysis",
-  text: "Logistic regression across 30 countries. Authored sections of the JPO Alumni Report.",
-  stack: ["Python", "PowerBI"] },
-{ n: "07", color: "c-lemon", status: "published",
-  kicker: "Undergrad · research lab", title: "Toddler cognition lab",
-  text: "Studies on 24-month-olds' understanding of pictures & video. Awarded grant; contributed to publications; highest honor on thesis.",
-  stack: ["SPSS", "Bootstrap", "Thesis"] },
-{ n: "08", color: "c-cream", status: "wip",
-  kicker: "Personal · now", title: "In the kitchen",
-  text: "Something new — tell me what to put here and I'll write it up properly.",
-  stack: ["TBD"] }];
+{ n: "01", feat: true, color: "c-butter", status: "production",
+  kicker: "Bloomberg · Quant Developer", title: "FX Hedge Analytics Suite",
+  text: "An app suite for evaluating currency exposure — Cash-Flow-at-Risk, VaR and volatility-cone modeling, with payoff visualization across hedge strategies and live Bloomberg option pricing.",
+  stack: ["Python", "BQuant", "CFaR / VaR", "Options"] },
+{ n: "02", color: "c-sage", status: "production",
+  kicker: "Bloomberg · Quant Developer", title: "Mortgage Capital Workflow",
+  text: "Relative-value analysis across agency and non-agency MBS deals: z-score screening, tranche credit-support analysis and interactive deal-comparison dashboards.",
+  stack: ["Python", "BQuant", "MBS"] },
+{ n: "03", color: "c-sky", status: "production",
+  kicker: "Bloomberg · Quant Developer", title: "Equity Ownership Momentum",
+  text: "Tracks historical shifts in institutional holders so traders can read position concentration, ownership rotation and potential momentum signals.",
+  stack: ["Python", "Launchpad", "Equities"] },
+{ n: "04", third: true, color: "c-rose", status: "shipped",
+  kicker: "Goldman Sachs · Quant Strat", title: "Deposit term-structure model",
+  text: "Rebuilt the non-maturity deposit model for PWM and Marcus retail; attrition and balance-volatility backtesting lifted funding value by an estimated $40mm / year.",
+  stack: ["Python", "Time series", "ALM"] },
+{ n: "05", third: true, color: "c-mint", status: "shipped",
+  kicker: "Goldman Sachs · Quant Strat", title: "Loan-level PnL system",
+  text: "End-to-end PnL monitoring for PWM bank loans — data pipelines and real-time dashboards for portfolio-wide risk and PnL attribution.",
+  stack: ["SLANG", "SQL", "Real-time"] },
+{ n: "06", third: true, color: "c-butter", status: "shipped",
+  kicker: "Goldman Sachs · Quant Strat", title: "Risk & price-marking tools",
+  text: "Mortgage-trading risk and marking tools built with the desk to sharpen PnL attribution and risk metrics — DV01, CVX01, CPNL.",
+  stack: ["Python", "Risk", "Pricing"] },
+{ n: "07", third: true, color: "c-sage", status: "delivered",
+  kicker: "Barclays · Business Analyst", title: "AML data infrastructure",
+  text: "Designed and validated ETL workflows for 10+ anti-money-laundering models, bridging business requirements and engineering to keep detection pipelines accurate and globally scalable.",
+  stack: ["ETL", "SQL", "AML"] },
+{ n: "08", third: true, color: "c-sky", status: "published",
+  kicker: "United Nations · DESA intern", title: "JPO retention analysis",
+  text: "Regression modeling of retention across 30 countries to surface drivers of program success; authored sections of the 2014–2018 JPO Alumni Survey Report.",
+  stack: ["Python", "Regression", "PowerBI"] },
+{ n: "09", third: true, color: "c-rose", status: "published",
+  kicker: "Vanderbilt · Research Lab", title: "Toddler cognition research",
+  text: "Studied how 24-month-olds understand pictures and video in a child-development lab. Won a research grant, contributed to publications, and earned the highest honor on my thesis.",
+  stack: ["SPSS", "Bootstrap", "Thesis"] }];
 
 
 const LOVES = [
-{ color: "c-sky", emoji: "f/2.0", title: "Photography",
-  text: "Mostly digital, sometimes film. Cities at dusk, strangers' hands, the geometry of train stations.",
+{ color: "c-sky", emoji: "f/2.0", title: "Photography", half: true,
+  text: "Mostly digital, sometimes film. Cities at dusk, strangers' hands, the geometry of a train station.",
   foot: "ROLLING SHUTTER" },
-{ color: "c-butter", emoji: "ß", title: "Languages",
-  text: "Four scripts I think in: 中文, 粤语, English, Deutsch. I collect idioms that don't survive translation.",
+{ color: "c-butter", emoji: "ß", title: "Languages", half: true,
+  text: "Four I think in — 中文, 粵語, English, Deutsch. I collect the idioms that don't survive translation.",
   foot: "FOUR ON ROTATION" },
 { color: "c-mint", emoji: "↻", title: "Long walks",
-  text: "I will out-walk you. Current project: the High Line end to end, then improvising until my feet file a complaint.",
+  text: "I will out-walk you. Current project: the High Line end to end, then improvising until my feet complain.",
   foot: "10K+ STEPS / DAY" },
-{ color: "c-rose", emoji: "★", title: "Markets",
-  text: "Both kinds. The kind with order books and the kind with peaches. I cook everything from one.",
+{ color: "c-sage", emoji: "★", title: "Markets",
+  text: "Both kinds — the ones with order books and the ones with peaches. I cook out of the second.",
   foot: "SATURDAY MORNINGS" },
-{ color: "c-sage", emoji: "✎", title: "Reading",
-  text: "Lately: Lulu Miller's Why Fish Don't Exist, Andy Weir's Project Hail Mary. Slow with novels, generous with margins.",
+{ color: "c-rose", emoji: "⌖", title: "Travel",
+  text: "20+ countries and counting — salt flats in Bolivia, alps in Austria, night markets back home. I plan the trip around the walking.",
+  foot: "20+ COUNTRIES" },
+{ color: "c-sky", emoji: "✎", title: "Reading", half: true,
+  text: "Lately: Lulu Miller's Why Fish Don't Exist and Andy Weir's Project Hail Mary. Slow with novels, generous in the margins.",
   foot: "BORROWS > BUYS" },
-{ color: "c-pink", emoji: "ψ", title: "Toddlers",
-  text: "Two years of research will do that to you. Still curious how a 2-y-o decides a photo is a thing.",
-  foot: "RESEARCH HABIT" },
+{ color: "c-pink", emoji: "ψ", title: "How kids think", half: true,
+  text: "Four years in a child-development lab left me hooked on one question — how a two-year-old decides that a picture is a thing.",
+  foot: "FOUR-YEAR HABIT" },
 { color: "c-sage", emoji: "▲", title: "National parks", wide: true,
   text: "Collecting them slowly — trailheads, tide pools, the smell of a forest after rain. The goal is all 63; the method is one long weekend at a time.",
   foot: "NEXT STAMP: ACADIA" }];
@@ -2223,7 +2444,7 @@ const LANGS = [
 
 
 const NOW = [
-{ k: "Working", v: <>Deposit retention + a redesigned <span className="ital">PnL system</span> at the day job.</> },
+{ k: "Building", v: <>Python analytics on Bloomberg's <span className="ital">BQuant</span> platform.</> },
 { k: "Reading", v: <>Lulu Miller, <span className="ital">Why Fish Don't Exist</span>. Andy Weir, <span className="ital">Project Hail Mary</span>.</> },
 { k: "Cooking", v: <>Recreating my mom's 蒜蓉粉丝蒸扇贝.</> },
 { k: "Walking", v: <>The High Line, end to end — then wherever the next espresso is.</> },
@@ -2231,23 +2452,81 @@ const NOW = [
 
 
 const PHOTOS = [
-{ id: "ph-1", t: 1, cap: "VIENNA · SEMESTER ABROAD", roll: "01" },
+{ id: "ph-1", t: 1, cap: "VIENNA · SEMESTER ABROAD", roll: "01", img: "images/ph-1.jpg" },
 { id: "ph-2", t: 2, cap: "SAN DIEGO, CA", roll: "02", img: "images/ph-2.jpg" },
-{ id: "ph-3", t: 3, cap: "GUANGZHOU · 春节", roll: "03" },
-{ id: "ph-4", t: 4, cap: "UYUNI · SALT FLATS", roll: "04" },
+{ id: "ph-3", t: 3, cap: "GUANGZHOU · 广州塔", roll: "03" },
+{ id: "ph-4", t: 4, cap: "MACHU PICCHU · PERU", roll: "04" },
 { id: "ph-5", t: 5, cap: "INNSBRUCK · ALPS", roll: "05" },
-{ id: "ph-6", t: 6, cap: "NASHVILLE, FALL", roll: "06" },
-{ id: "ph-7", t: 7, cap: "CUSCO · ANDES", roll: "07" },
-{ id: "ph-8", t: 8, cap: "NIAGARA FALLS", roll: "08" },
-{ id: "ph-9", t: 9, cap: "BUDAPEST · KELETI", roll: "09" }];
+{ id: "ph-6", t: 6, cap: "SEATTLE · MT BAKER", roll: "06" },
+{ id: "ph-8", t: 7, cap: "JERSEY CITY · NJ", roll: "07" },
+{ id: "ph-7", t: 8, cap: "ISLA INCAHUASI · SALAR DE UYUNI · BOLIVIA", roll: "08" },
+{ id: "ph-9", t: 9, cap: "SALINERAS DE MARAS · SACRED VALLEY · PERU", roll: "09" },
+{ id: "ph-10", t: 10, cap: "NEW JERSEY", roll: "10" },
+{ id: "ph-11", t: 11, cap: "WACHAU · AUSTRIA · UNESCO", roll: "11" },
+{ id: "ph-12", t: 12, cap: "HAVANA · CUBA", roll: "12" },
+{ id: "ph-13", t: 13, cap: "ALASKA", roll: "13" },
+{ id: "ph-14", t: 14, cap: "PUERTO RICO", roll: "14" }];
 
 
 const MARQUEE = [
-"QUANT STRATEGIST", "JERSEY CITY · NJ", "FROM GUANGZHOU", "FOUR LANGUAGES",
+"QUANT DEVELOPER", "JERSEY CITY · NJ", "FROM GUANGZHOU", "FOUR LANGUAGES",
 "WHY FISH DON'T EXIST", "WALKING THE HIGH LINE", "蒜蓉粉丝蒸扇贝", "ACADIA NEXT ▲", "AVAILABLE FOR COFFEE"];
 
 
 // ============================ COMPONENTS ============================
+
+function LocalClock() {
+  const [t, setT] = useState("");
+  useEffect(() => {
+    const f = () => setT(new Date().toLocaleTimeString("en-US",
+      { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" }));
+    f();
+    const id = setInterval(f, 30000);
+    return () => clearInterval(id);
+  }, []);
+  return <span className="nav-time">{t}</span>;
+}
+
+// ============================ ENVELOPE INTRO ============================
+function EnvelopeIntro({ onDone }) {
+  const [phase, setPhase] = useState("closed"); // closed → open → away
+  const open = () => {
+    if (phase !== "closed") return;
+    setPhase("open");
+    setTimeout(() => {
+      setPhase("away");
+      document.body.classList.add("cards-in");
+    }, 1650);
+    setTimeout(onDone, 2250);
+  };
+  return (
+    <div className={"env-overlay " + phase} onClick={open} role="button" tabIndex={0}
+    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") open(); }}
+    aria-label="Open the letter">
+      <div className="envelope">
+        <div className="env-back"></div>
+        <div className="env-letter">
+          <img className="env-logo" src="assets/niuniu.png" alt="" onError={(e) => e.target.style.display = "none"} />
+          <span className="env-name">Eylon</span>
+        </div>
+        <div className="env-front">
+          <div className="env-addr">
+            to: <b>you, the visitor</b><br />
+            from: eylon
+          </div>
+          <div className="env-mark">JUL<br />2026</div>
+        </div>
+        <div className="env-flap">
+          <svg viewBox="0 0 100 55" preserveAspectRatio="none" aria-hidden="true">
+            <polygon points="1,1 99,1 50,53" fill="var(--c-butter)" stroke="var(--ink)" strokeWidth="1.4"></polygon>
+          </svg>
+        </div>
+        <div className="env-seal">EL</div>
+      </div>
+      <div className="env-hint">✉︎ click to open</div>
+    </div>);
+
+}
 
 function Topbar({ tab, setTab }) {
   const TABS = ["home", "atlas", "work", "life", "photos"];
@@ -2265,7 +2544,7 @@ function Topbar({ tab, setTab }) {
         )}
       </div>
       <div className="nav-loc">
-        <span className="live-dot" /> JERSEY CITY · NJ
+        <span className="live-dot" /> JERSEY CITY · NJ <LocalClock />
       </div>
     </nav>);
 
@@ -2302,13 +2581,44 @@ function Hero({ goAtlas }) {
 
 }
 
+function CountUp({ value }) {
+  const m = /^(\d+)(.*)$/.exec(value);
+  const [n, setN] = useState(0);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!m) return;
+    const target = +m[1];
+    if (document.body.classList.contains("no-motion") ||
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+        !("IntersectionObserver" in window)) { setN(target); return; }
+    let raf;
+    const io = new IntersectionObserver((es) => {
+      if (!es[0].isIntersecting) return;
+      io.disconnect();
+      const start = performance.now(), dur = 1100;
+      const tick = (now) => {
+        const p = Math.min(1, (now - start) / dur);
+        setN(Math.round(target * (1 - Math.pow(1 - p, 3))));
+        if (p < 1) raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+    }, { threshold: 0.4 });
+    if (ref.current) io.observe(ref.current);
+    return () => { io.disconnect(); cancelAnimationFrame(raf); };
+  }, [value]);
+  if (!m) return <span>{value}</span>;
+  return <span ref={ref}>{n}{m[2]}</span>;
+}
+
 function StatStrip() {
   return (
     <div className="stats rv">
       {STATS.map((s, i) =>
       <div className="stat" key={i}>
           <div className="stat-num">
-            {i === 1 || i === 3 ? <span className="ital">{s.num}</span> : s.num}
+            {i === 1 || i === 3 ?
+            <span className="ital"><CountUp value={s.num} /></span> :
+            <CountUp value={s.num} />}
           </div>
           <div className="stat-label">{s.label}</div>
         </div>
@@ -2341,14 +2651,13 @@ function MiniMap({ goAtlas }) {
 }
 
 function ChapterTeaser() {
-  const c = CHAPTERS[CHAPTERS.length - 1];
   return (
-    <div className="block butter chapter-teaser rv" data-screen-label="03 Chapter Teaser">
-      <div className="yr">Current chapter</div>
-      <h3>{c.title}</h3>
-      <p className="body">{c.text}</p>
+    <div className="block butter chapter-teaser rv" data-screen-label="03 Summary">
+      <div className="yr">In short</div>
+      <h3>Quant developer building analytics traders actually use.</h3>
+      <p className="body">Five years across Bloomberg, Goldman Sachs, Barclays and the UN — turning trading workflows into scalable Python tools spanning fixed income, FX and equities. Off the clock, I vibe-code personal projects like this site.</p>
       <div className="foot">
-        {c.tags.slice(0, 3).map((t) => <span key={t}>· {t}</span>)}
+        <span>· Python</span><span>· BQuant</span><span>· Vibe-coding</span>
       </div>
     </div>);
 
@@ -2356,8 +2665,8 @@ function ChapterTeaser() {
 
 function NowSnapshot() {
   return (
-    <div className="block sage rv" style={{ "--rv-d": "90ms" }} data-screen-label="04 Now">
-      <div className="block-kicker">/now · May '26</div>
+    <div className="block sage now-block rv" style={{ "--rv-d": "90ms" }} data-screen-label="04 Now">
+      <div className="block-kicker">/now · 2026</div>
       <h2 className="block-title">Currently <span className="ital">/now/</span></h2>
       <div style={{ marginTop: 18 }}>
         {NOW.map((row, i) =>
@@ -2479,9 +2788,9 @@ function WorkTab() {
             <h2 className="block-title">Things I've <span className="ital">built</span>.</h2>
           </div>
           <p className="block-lede">
-            Shipped, researched, published — and one still in the kitchen.
-            The number game: a multi-billion portfolio, double-digit lift in cross-sell,
-            strong out-of-sample accuracy, and one stubborn LSTM that finally cooperated.
+            Quant tools built across Bloomberg's BQuant platform, Goldman Sachs,
+            Barclays and the UN — fixed income, FX and equities, plus risk,
+            retention and PnL modeling. In production, shipped, and published.
           </p>
         </div>
         <div className="work-grid">
@@ -2556,7 +2865,7 @@ function LifeTab() {
         </div>
         <div className="loves-grid">
           {LOVES.map((l, i) =>
-          <div className={"love rv " + l.color + (l.wide ? " wide" : "")} style={{ "--rv-d": i % 3 * 70 + "ms" }} key={i}>
+          <div className={"love rv " + l.color + (l.wide ? " wide" : "") + (l.half ? " half" : "")} style={{ "--rv-d": i % 3 * 70 + "ms" }} key={i}>
               <div className="love-emoji">{l.emoji}</div>
               <div className="love-title">{l.title}</div>
               <div className="love-text">{l.text}</div>
@@ -2624,7 +2933,10 @@ function Foot() {
   };
   return (
     <footer data-comment-anchor="4c804c36ee-footer-892-5">
-      <div>© Eylon Liu · 2026 <span style={{ opacity: 0.45, marginLeft: 10 }}>· psst: try typing my name</span></div>
+      <div className="foot-left">
+        <img className="foot-mascot" src="assets/niuniu.png" alt="" onError={(e) => e.target.style.display = "none"} />
+        <div>© Eylon Liu · 2026 <span style={{ opacity: 0.45, marginLeft: 10 }}>· psst: try typing my name</span></div>
+      </div>
       <div className="foot-links">
         <a href="#contact" onClick={reveal} title={contact ? "Click to open mail app" : "Click to reveal"}>
           {contact ? <>{contact.user} <span style={{ opacity: 0.5 }}>[at]</span> {contact.dom} ↗</> : "Email →"}
@@ -2642,7 +2954,9 @@ const TWEAKS = /*EDITMODE-BEGIN*/{
   "wallpaper": "dots",
   "motion": true,
   "flightSound": false,
-  "shapes": "playful"
+  "shapes": "playful",
+  "paint": true,
+  "envelope": true
 } /*EDITMODE-END*/;
 
 const BG_MAP = {
@@ -2657,6 +2971,16 @@ function App() {
   const [tab, setTab] = useState("home");
   const [t, setTweak] = useTweaks(TWEAKS);
   const [toast, setToast] = useState(null);
+
+  // envelope intro — shown on every load unless motion/intro is off
+  const wantIntro = t.envelope !== false && t.motion !== false &&
+    !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const [introDone, setIntroDone] = useState(false);
+  const introActive = wantIntro && !introDone;
+  useEffect(() => {
+    document.body.style.overflow = introActive ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [introActive]);
 
   // secret: type "eylon" anywhere → fly the whole journey
   const flyover = React.useCallback(() => {
@@ -2692,6 +3016,12 @@ function App() {
   useEffect(() => {
     document.body.classList.toggle("shapes-playful", t.shapes !== "classic");
   }, [t.shapes]);
+
+  // paintbrush cursor — only when motion is allowed (it hides the native cursor)
+  useEffect(() => {
+    const on = t.paint !== false && t.motion !== false;
+    document.body.classList.toggle("brush-on", on);
+  }, [t.paint, t.motion]);
 
   // scroll-reveal: fade blocks up as they enter the viewport
   useEffect(() => {
@@ -2738,7 +3068,8 @@ function App() {
         {tab === "photos" && <PhotosTab />}
         <Foot />
       </div>
-      <CursorDoodle />
+      <CursorDoodle paint={t.paint !== false} />
+      {introActive && <EnvelopeIntro onDone={() => setIntroDone(true)} />}
       {toast && <div className="secret-toast">{toast}</div>}
 
       <TweaksPanel title="Tweaks">
@@ -2769,6 +3100,14 @@ function App() {
           { value: "playful", label: "Playful" },
           { value: "classic", label: "Classic" }]
           } />
+        </TweakSection>
+        <TweakSection title="Cursor">
+          <TweakToggle label="Paintbrush" value={t.paint !== false}
+          onChange={(v) => setTweak("paint", v)} />
+        </TweakSection>
+        <TweakSection title="Intro">
+          <TweakToggle label="Envelope on load" value={t.envelope !== false}
+          onChange={(v) => setTweak("envelope", v)} />
         </TweakSection>
         <TweakSection title="Motion">
           <TweakToggle label="Scroll animations" value={t.motion !== false}
